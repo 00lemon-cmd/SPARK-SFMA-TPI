@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    :root { --primary: #2c3e50; --breakout: #c0392b; --bg: #cbd5e1; }
+    body { font-family: 'Segoe UI', sans-serif; padding: 40px 20px; background-color: var(--bg); margin: 0; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
+    
+    /* Expanded max-width for Laptop Layout */
+    .screen { display: none; width: 100%; max-width: 850px; background: #f8fafc; padding: 25px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); text-align: center; }
+    .screen-main-layout { text-align: left; }
+    .active { display: block; }
+    
+    .header { color: white; padding: 15px; text-align: center; font-weight: bold; margin-bottom: 20px; border-radius: 6px; font-size: 1.2em; letter-spacing: 1px; }
+    .header-tt { background: var(--primary); }
+    .header-bo { background: var(--breakout); }
+    
+    /* Two-Column CSS Grid Layout */
+    .two-col-layout { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: stretch; margin-bottom: 15px; }
+    
+    .sidebar-panel { background: white; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; max-height: 450px; }
+    .main-panel { display: flex; flex-direction: column; }
+    
+    .card { background: white; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; height: 100%; display: flex; flex-direction: column; justify-content: center; }
+    .test-title { font-weight: bold; font-size: 1.2em; margin-bottom: 20px; color: #1e293b; line-height: 1.4; }
+    
+    /* Vertical Timeline CSS */
+    .breadcrumb-vertical { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex-grow: 1; padding-right: 10px; }
+    .breadcrumb-vertical::-webkit-scrollbar { width: 6px; }
+    .breadcrumb-vertical::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    
+    .breadcrumb-item { font-size: 0.85em; background: #f1f5f9; padding: 10px; border-radius: 6px; border-left: 4px solid #94a3b8; transition: 0.2s; }
+    .breadcrumb-item.current { border-left-color: var(--breakout); background: #fef2f2; font-weight: bold; border-left-width: 6px;}
+    .breadcrumb-item.current-tt { border-left-color: var(--primary); background: #f0f9ff; font-weight: bold; border-left-width: 6px;}
+    
+    .btn-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    button { padding: 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1.05em; transition: 0.15s; text-transform: uppercase; letter-spacing: 0.5px; }
+    button:active { transform: scale(0.98); }
+    
+    .btn-fn { background-color: #10b981; color: white; }
+    .btn-dn { background-color: #f59e0b; color: white; }
+    .btn-dp { background-color: #ea580c; color: white; }
+    .btn-fp { background-color: #ef4444; color: white; }
+    .btn-back { background-color: #94a3b8; color: white; margin-top: 15px; width: 100%; font-size: 0.9em; padding: 12px;}
+    
+    .diag-box { background: #fef2f2; border-left: 6px solid var(--breakout); padding: 15px; margin-bottom: 15px; display: none; border-radius: 0 6px 6px 0; text-align: left;}
+    .diag-text { color: var(--breakout); font-weight: bold; margin: 0; font-size: 1em; line-height: 1.4; }
+
+    /* Success Screen Specifics */
+    .success-icon { font-size: 3em; margin-bottom: 10px; }
+    .btn-pdf { background-color: #3b82f6; color: white; margin-bottom: 10px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 10px;}
+    .btn-pdf-program { background-color: #16a085; color: white; margin-bottom: 20px; width: 100%; }
+    .btn-restart { background-color: #cbd5e1; color: #334155; width: 100%; }
+    
+    .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* Mobile Fallback */
+    @media (max-width: 700px) {
+      .two-col-layout { grid-template-columns: 1fr; }
+      .sidebar-panel { max-height: 200px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="screen-client" class="screen active" style="max-width: 550px;">
+    <div class="header header-tt">SFMA CLINICAL INTAKE</div>
+    <div class="card"><input type="text" id="client-name" placeholder="Patient Full Name" style="width:90%; padding:14px; border:1px solid #ccc; border-radius:6px; font-size:1.05em;"></div>
+    <button class="btn-fn" style="width:100%" onclick="initTT()">START ASSESSMENT</button>
+  </div>
+
+  <div id="screen-main" class="screen screen-main-layout">
+    <div id="ui-header" class="header"></div>
+    <div id="diag-container" class="diag-box"><p id="diag-output" class="diag-text"></p></div>
+    
+    <div class="two-col-layout">
+      
+      <div class="sidebar-panel">
+        <div id="display-pattern" style="font-size:0.85em; color:#7f8c8d; font-weight:bold; margin-bottom:12px; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;"></div>
+        <div id="breadcrumb-trail" class="breadcrumb-vertical"></div>
+      </div>
+
+      <div class="main-panel">
+        <div class="card">
+          <div style="font-size:0.85em; color:#94a3b8; font-weight:bold; margin-bottom:8px; text-transform: uppercase;">Current Assessment:</div>
+          <div id="display-test" class="test-title"></div>
+          <div class="btn-container">
+            <button class="btn-fn" onclick="handleInput('FN')">FN</button>
+            <button class="btn-dn" onclick="handleInput('DN')">DN</button>
+            <button class="btn-dp" onclick="handleInput('DP')">DP</button>
+            <button class="btn-fp" onclick="handleInput('FP')">FP</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    
+    <button id="back-btn" class="btn-back" onclick="goBack()">← BACK (UNDO LAST)</button>
+  </div>
+
+  <div id="screen-loading" class="screen" style="max-width: 550px;">
+    <div class="header header-tt" style="background: #34495e;">COMPILING REPORTS</div>
+    <p style="color: #475569; font-weight: bold; margin-top: 20px;">Analyzing clinical pathways and generating PDFs...</p>
+    <div class="loader"></div>
+  </div>
+
+  <div id="screen-success" class="screen" style="max-width: 550px;">
+    <div class="success-icon">✅</div>
+    <h2 style="color: #1e293b; margin-top: 0;">Assessment Complete</h2>
+    <p style="color: #64748b; margin-bottom: 25px;">Your clinical reports have been compiled and securely saved to the database. You can download the PDFs below.</p>
+    <button class="btn-pdf" id="btn-download-audit">📄 Download Clinical Audit (PDF)</button>
+    <button class="btn-pdf-program" id="btn-download-program">📄 Download Prescribed Program (PDF)</button>
+    <button class="btn-restart" onclick="location.reload()">Start New Patient</button>
+  </div>
+
+  <script>
+    let state = { client: "", mode: "TT", ttIndex: 0, boQueue: [], currentTest: "", activePattern: "", resultsLog: [] };
+    let historyStack = [];
+
+    const TT_ORDER = [
+      "Cervical Flexion", "Cervical Extension", "Cervical Rotation L", "Cervical Rotation R",
+      "UE Pattern 1 L", "UE Pattern 1 R", "UE Pattern 2 L", "UE Pattern 2 R",
+      "Multi-Segmental Flexion", "Multi-Segmental Extension", "MS Rotation L", "MS Rotation R",
+      "SLS L", "SLS R", "Deep Squat"
+    ];
+
+    const SFMA_LOGIC = {
+      "Cervical Flexion": {
+        start: "Active Supine Cervical Flexion Test (Chin to Chest)",
+        nodes: {
+          "Active Supine Cervical Flexion Test (Chin to Chest)": { "FN": { diag: "Postural SMCD affecting cervical flexion.", next: "EXIT" }, "any": { next: "Passive Supine Cervical Flexion Test" } },
+          "Passive Supine Cervical Flexion Test": { "FN": { diag: "Active cervical spine flexion SMCD.", next: "EXIT" }, "any": { next: "Active Supine OA Cervical Flexion Test (Nod)" } },
+          "Active Supine OA Cervical Flexion Test (Nod)": { "FN": { diag: "Mid-to-lower cervical spine MD.", next: "EXIT" }, "DN": { diag: "OA/Upper cervical flexion MD.", next: "EXIT" }, "any": { diag: "OA/Upper cervical flexion pain/dysfunction.", next: "EXIT" } }
+        }
+      },
+      "Cervical Extension": {
+        start: "Supine Cervical Extension",
+        nodes: { "Supine Cervical Extension": { "FN": { diag: "Postural and/or active cervical extension SMCD.", next: "EXIT" }, "DN": { diag: "Cervical spine extension MD.", next: "EXIT" }, "any": { diag: "Cervical spine extension pain/dysfunction.", next: "EXIT" } } }
+      },
+      "Cervical Rotation": {
+        start: "Active Supine Cervical Rotation Test",
+        nodes: {
+          "Active Supine Cervical Rotation Test": { "FN": { diag: "Postural and/or active cervical rotation SMCD.", next: "EXIT" }, "any": { next: "Passive Supine Cervical Rotation Test" } },
+          "Passive Supine Cervical Rotation Test": { "FN": { diag: "Active cervical spine rotation SMCD.", next: "EXIT" }, "any": { next: "C1-C2 Cervical Rotation Test (Flexion-Rotation)" } },
+          "C1-C2 Cervical Rotation Test (Flexion-Rotation)": { "FN": { diag: "Complex: Mid-lower cervical spine SMCD/MD.", next: "EXIT" }, "DN": { diag: "C1-C2 (Upper Cervical) rotation MD.", next: "EXIT" }, "any": { diag: "C1-C2 (Upper Cervical) rotation pain/dysfunction.", next: "EXIT" } }
+        }
+      },
+      "UE Pattern 1 L": {
+        start: "Active Lumbar Locked (IR) Ext/Rot L",
+        nodes: {
+          "Active Lumbar Locked (IR) Ext/Rot L": { "FN": { next: "Active Prone UE Pattern 1 L" }, "any": { next: "Passive Lumbar Locked Ext/Rot L" } },
+          "Passive Lumbar Locked Ext/Rot L": { "FN": { diag: "Left Thorax ext/rot SMCD.", next: "Active Prone UE Pattern 1 L" }, "DN": { diag: "Left Thorax ext/rot MD.", next: "Active Prone UE Pattern 1 L" }, "any": { diag: "Left Thorax pain.", next: "Active Prone UE Pattern 1 L" } },
+          "Active Prone UE Pattern 1 L": { "FN": { diag: "Left Postural/Shoulder SMCD.", next: "EXIT" }, "any": { next: "Passive Prone UE Pattern 1 L" } },
+          "Passive Prone UE Pattern 1 L": { "FN": { diag: "Left Postural/Shoulder SMCD.", next: "EXIT" }, "any": { next: "Active Prone Shoulder 90/90 IR L" } },
+          "Active Prone Shoulder 90/90 IR L": { "FN": { next: "Active Prone Shoulder Extension L" }, "any": { next: "Passive Prone Shoulder IR L" } },
+          "Passive Prone Shoulder IR L": { "FN": { diag: "Left Shoulder IR SMCD.", next: "Active Prone Shoulder Extension L" }, "DN": { diag: "Left Shoulder IR MD.", next: "Active Prone Shoulder Extension L" }, "any": { next: "Active Prone Shoulder Extension L" } },
+          "Active Prone Shoulder Extension L": { "FN": { next: "Active Prone Elbow Flexion L" }, "any": { next: "Passive Prone Shoulder Extension L" } },
+          "Passive Prone Shoulder Extension L": { "FN": { diag: "Left Shoulder extension SMCD.", next: "Active Prone Elbow Flexion L" }, "DN": { diag: "Left Shoulder extension MD.", next: "Active Prone Elbow Flexion L" }, "any": { next: "Active Prone Elbow Flexion L" } },
+          "Active Prone Elbow Flexion L": { "FN": { diag: "Left Elbow Flexion Normal.", next: "EXIT" }, "any": { next: "Passive Prone Elbow Flexion L" } },
+          "Passive Prone Elbow Flexion L": { "FN": { diag: "Left Elbow flexion SMCD.", next: "EXIT" }, "DN": { diag: "Left Elbow flexion MD.", next: "EXIT" }, "any": { next: "EXIT" } }
+        }
+      },
+      "UE Pattern 1 R": {
+        start: "Active Lumbar Locked (IR) Ext/Rot R",
+        nodes: {
+          "Active Lumbar Locked (IR) Ext/Rot R": { "FN": { next: "Active Prone UE Pattern 1 R" }, "any": { next: "Passive Lumbar Locked Ext/Rot R" } },
+          "Passive Lumbar Locked Ext/Rot R": { "FN": { diag: "Right Thorax ext/rot SMCD.", next: "Active Prone UE Pattern 1 R" }, "DN": { diag: "Right Thorax ext/rot MD.", next: "Active Prone UE Pattern 1 R" }, "any": { diag: "Right Thorax pain.", next: "Active Prone UE Pattern 1 R" } },
+          "Active Prone UE Pattern 1 R": { "FN": { diag: "Right Postural/Shoulder SMCD.", next: "EXIT" }, "any": { next: "Passive Prone UE Pattern 1 R" } },
+          "Passive Prone UE Pattern 1 R": { "FN": { diag: "Right Postural/Shoulder SMCD.", next: "EXIT" }, "any": { next: "Active Prone Shoulder 90/90 IR R" } },
+          "Active Prone Shoulder 90/90 IR R": { "FN": { next: "Active Prone Shoulder Extension R" }, "any": { next: "Passive Prone Shoulder IR R" } },
+          "Passive Prone Shoulder IR R": { "FN": { diag: "Right Shoulder IR SMCD.", next: "Active Prone Shoulder Extension R" }, "DN": { diag: "Right Shoulder IR MD.", next: "Active Prone Shoulder Extension R" }, "any": { next: "Active Prone Shoulder Extension R" } },
+          "Active Prone Shoulder Extension R": { "FN": { next: "Active Prone Elbow Flexion R" }, "any": { next: "Passive Prone Shoulder Extension R" } },
+          "Passive Prone Shoulder Extension R": { "FN": { diag: "Right Shoulder extension SMCD.", next: "Active Prone Elbow Flexion R" }, "DN": { diag: "Right Shoulder extension MD.", next: "Active Prone Elbow Flexion R" }, "any": { next: "Active Prone Elbow Flexion R" } },
+          "Active Prone Elbow Flexion R": { "FN": { diag: "Right Elbow Flexion Normal.", next: "EXIT" }, "any": { next: "Passive Prone Elbow Flexion R" } },
+          "Passive Prone Elbow Flexion R": { "FN": { diag: "Right Elbow flexion SMCD.", next: "EXIT" }, "DN": { diag: "Right Elbow flexion MD.", next: "EXIT" }, "any": { next: "EXIT" } }
+        }
+      },
+      "UE Pattern 2 L": {
+        start: "Active Lumbar Locked (IR) Ext/Rot L",
+        nodes: {
+          "Active Lumbar Locked (IR) Ext/Rot L": { "FN": { next: "Active Prone UE Pattern 2 L" }, "any": { next: "Passive Lumbar Locked Ext/Rot L" } },
+          "Passive Lumbar Locked Ext/Rot L": { "FN": { diag: "Left Thorax ext/rot SMCD.", next: "Active Prone UE Pattern 2 L" }, "DN": { diag: "Left Thorax ext/rot MD.", next: "Active Prone UE Pattern 2 L" }, "any": { next: "Active Prone UE Pattern 2 L" } },
+          "Active Prone UE Pattern 2 L": { "FN": { diag: "Left Postural/Shoulder SMCD.", next: "EXIT" }, "any": { next: "Passive Prone UE Pattern 2 L" } },
+          "Passive Prone UE Pattern 2 L": { "FN": { diag: "Left Postural/Shoulder SMCD.", next: "EXIT" }, "any": { next: "Active Prone Shoulder 90/90 ER L" } },
+          "Active Prone Shoulder 90/90 ER L": { "FN": { next: "Active Prone Shoulder Flexion/Abduction L" }, "any": { next: "Passive Prone Shoulder ER L" } },
+          "Passive Prone Shoulder ER L": { "FN": { diag: "Left Shoulder ER SMCD.", next: "Active Prone Shoulder Flexion/Abduction L" }, "DN": { diag: "Left Shoulder ER MD.", next: "Active Prone Shoulder Flexion/Abduction L" }, "any": { next: "Active Prone Shoulder Flexion/Abduction L" } },
+          "Active Prone Shoulder Flexion/Abduction L": { "FN": { next: "Active Prone Elbow Flexion L" }, "any": { next: "Passive Prone Shoulder Flexion/Abduction L" } },
+          "Passive Prone Shoulder Flexion/Abduction L": { "FN": { diag: "Left Shoulder flex/abd SMCD.", next: "Active Prone Elbow Flexion L" }, "DN": { diag: "Left Shoulder flex/abd MD.", next: "Active Prone Elbow Flexion L" }, "any": { next: "Active Prone Elbow Flexion L" } },
+          "Active Prone Elbow Flexion L": { "FN": { diag: "Left Elbow Flexion Normal.", next: "EXIT" }, "any": { next: "Passive Prone Elbow Flexion L" } },
+          "Passive Prone Elbow Flexion L": { "FN": { diag: "Left Elbow flexion SMCD.", next: "EXIT" }, "DN": { diag: "Left Elbow flexion MD.", next: "EXIT" }, "any": { next: "EXIT" } }
+        }
+      },
+      "UE Pattern 2 R": {
+        start: "Active Lumbar Locked (IR) Ext/Rot R",
+        nodes: {
+          "Active Lumbar Locked (IR) Ext/Rot R": { "FN": { next: "Active Prone UE Pattern 2 R" }, "any": { next: "Passive Lumbar Locked Ext/Rot R" } },
+          "Passive Lumbar Locked Ext/Rot R": { "FN": { diag: "Right Thorax ext/rot SMCD.", next: "Active Prone UE Pattern 2 R" }, "DN": { diag: "Right Thorax ext/rot MD.", next: "Active Prone UE Pattern 2 R" }, "any": { next: "Active Prone UE Pattern 2 R" } },
+          "Active Prone UE Pattern 2 R": { "FN": { diag: "Right Postural/Shoulder SMCD.", next: "EXIT" }, "any": { next: "Passive Prone UE Pattern 2 R" } },
+          "Passive Prone UE Pattern 2 R": { "FN": { diag: "Right Postural/Shoulder SMCD.", next: "EXIT" }, "any": { next: "Active Prone Shoulder 90/90 ER R" } },
+          "Active Prone Shoulder 90/90 ER R": { "FN": { next: "Active Prone Shoulder Flexion/Abduction R" }, "any": { next: "Passive Prone Shoulder ER R" } },
+          "Passive Prone Shoulder ER R": { "FN": { diag: "Right Shoulder ER SMCD.", next: "Active Prone Shoulder Flexion/Abduction R" }, "DN": { diag: "Right Shoulder ER MD.", next: "Active Prone Shoulder Flexion/Abduction R" }, "any": { next: "Active Prone Shoulder Flexion/Abduction R" } },
+          "Active Prone Shoulder Flexion/Abduction R": { "FN": { next: "Active Prone Elbow Flexion R" }, "any": { next: "Passive Prone Shoulder Flexion/Abduction R" } },
+          "Passive Prone Shoulder Flexion/Abduction R": { "FN": { diag: "Right Shoulder flex/abd SMCD.", next: "Active Prone Elbow Flexion R" }, "DN": { diag: "Right Shoulder flex/abd MD.", next: "Active Prone Elbow Flexion R" }, "any": { next: "Active Prone Elbow Flexion R" } },
+          "Active Prone Elbow Flexion R": { "FN": { diag: "Right Elbow Flexion Normal.", next: "EXIT" }, "any": { next: "Passive Prone Elbow Flexion R" } },
+          "Passive Prone Elbow Flexion R": { "FN": { diag: "Right Elbow flexion SMCD.", next: "EXIT" }, "DN": { diag: "Right Elbow flexion MD.", next: "EXIT" }, "any": { next: "EXIT" } }
+        }
+      },
+      "Multi-Segmental Flexion": {
+        start: "Long Sitting Flexion",
+        nodes: {
+          "Long Sitting Flexion": { "FN": { diag: "Weight-bearing hip flexion SMCD.", next: "EXIT" }, "any": { next: "Active SLR L" } },
+          "Active SLR L": { "FN": { next: "Active SLR R" }, "any": { next: "Stabilized ASLR L" } },
+          "Stabilized ASLR L": { "FN": { diag: "Left Core (Pelvic) SMCD.", next: "Active SLR R" }, "any": { next: "Passive SLR L" } },
+          "Passive SLR L": { "FN": { diag: "Left Hip flexion SMCD.", next: "Active SLR R" }, "any": { next: "Supine Knee to Chest L (Shins)" } },
+          "Supine Knee to Chest L (Shins)": { "FN": { diag: "Left Posterior chain MD.", next: "Active SLR R" }, "any": { next: "Supine Knee to Chest L (Thighs)" } },
+          "Supine Knee to Chest L (Thighs)": { "FN": { diag: "Left Hip flexion MD & Posterior chain MD.", next: "Active SLR R" }, "DN": { diag: "Left Hip flexion MD.", next: "Active SLR R" }, "any": { diag: "Left Hip joint pain.", next: "Active SLR R" } },
+          
+          "Active SLR R": { "FN": { next: "Prone Rocking" }, "any": { next: "Stabilized ASLR R" } },
+          "Stabilized ASLR R": { "FN": { diag: "Right Core (Pelvic) SMCD.", next: "Prone Rocking" }, "any": { next: "Passive SLR R" } },
+          "Passive SLR R": { "FN": { diag: "Right Hip flexion SMCD.", next: "Prone Rocking" }, "any": { next: "Supine Knee to Chest R (Shins)" } },
+          "Supine Knee to Chest R (Shins)": { "FN": { diag: "Right Posterior chain MD.", next: "Prone Rocking" }, "any": { next: "Supine Knee to Chest R (Thighs)" } },
+          "Supine Knee to Chest R (Thighs)": { "FN": { diag: "Right Hip flexion MD & Posterior chain MD.", next: "Prone Rocking" }, "DN": { diag: "Right Hip flexion MD.", next: "Prone Rocking" }, "any": { diag: "Right Hip joint pain.", next: "Prone Rocking" } },
+          
+          "Prone Rocking": { "FN": { diag: "Spine flexion normal.", next: "EXIT" }, "DN": { diag: "Spine flexion MD.", next: "EXIT" }, "any": { diag: "Spine flexion pain/dysfunction.", next: "EXIT" } }
+        }
+      },
+      "Multi-Segmental Extension": {
+        start: "Prone Press-Up",
+        nodes: {
+          "Prone Press-Up": { "FN": { next: "Active Prone Shoulder Girdle Flexion L" }, "any": { next: "Active Lumbar Locked (IR) Ext/Rot L" } },
+          
+          "Active Lumbar Locked (IR) Ext/Rot L": { "FN": { next: "Active Lumbar Locked (IR) Ext/Rot R" }, "any": { next: "Passive Lumbar Locked Ext/Rot L" } },
+          "Passive Lumbar Locked Ext/Rot L": { "FN": { diag: "Left Thorax ext/rot SMCD.", next: "Active Lumbar Locked (IR) Ext/Rot R" }, "DN": { diag: "Left Thorax ext/rot MD.", next: "Active Lumbar Locked (IR) Ext/Rot R" }, "any": { diag: "Left Thorax pain.", next: "Active Lumbar Locked (IR) Ext/Rot R" } },
+          
+          "Active Lumbar Locked (IR) Ext/Rot R": { "FN": { next: "Active Prone on Elbow Ext/Rot L" }, "any": { next: "Passive Lumbar Locked Ext/Rot R" } },
+          "Passive Lumbar Locked Ext/Rot R": { "FN": { diag: "Right Thorax ext/rot SMCD.", next: "Active Prone on Elbow Ext/Rot L" }, "DN": { diag: "Right Thorax ext/rot MD.", next: "Active Prone on Elbow Ext/Rot L" }, "any": { diag: "Right Thorax pain.", next: "Active Prone on Elbow Ext/Rot L" } },
+          
+          "Active Prone on Elbow Ext/Rot L": { "FN": { diag: "Left WB extension SMCD.", next: "Active Prone on Elbow Ext/Rot R" }, "any": { next: "Passive Prone on Elbow Ext/Rot L" } },
+          "Passive Prone on Elbow Ext/Rot L": { "FN": { diag: "Left Lumbar ext/rot SMCD.", next: "Active Prone on Elbow Ext/Rot R" }, "DN": { diag: "Left Lumbar ext/rot MD.", next: "Active Prone on Elbow Ext/Rot R" }, "any": { diag: "Left Lumbar pain.", next: "Active Prone on Elbow Ext/Rot R" } },
+          
+          "Active Prone on Elbow Ext/Rot R": { "FN": { diag: "Right WB extension SMCD.", next: "Active Prone Shoulder Girdle Flexion L" }, "any": { next: "Passive Prone on Elbow Ext/Rot R" } },
+          "Passive Prone on Elbow Ext/Rot R": { "FN": { diag: "Right Lumbar ext/rot SMCD.", next: "Active Prone Shoulder Girdle Flexion L" }, "DN": { diag: "Right Lumbar ext/rot MD.", next: "Active Prone Shoulder Girdle Flexion L" }, "any": { diag: "Right Lumbar pain.", next: "Active Prone Shoulder Girdle Flexion L" } },
+          
+          "Active Prone Shoulder Girdle Flexion L": { "FN": { next: "Active Prone Shoulder Girdle Flexion R" }, "any": { next: "Passive Prone Shoulder Flexion L" } },
+          "Passive Prone Shoulder Flexion L": { "FN": { diag: "Left Shoulder flexion SMCD.", next: "Active Prone Shoulder Girdle Flexion R" }, "any": { diag: "Left Shoulder flexion MD.", next: "Active Prone Shoulder Girdle Flexion R" } },
+          
+          "Active Prone Shoulder Girdle Flexion R": { "FN": { next: "FABER Test L" }, "any": { next: "Passive Prone Shoulder Flexion R" } },
+          "Passive Prone Shoulder Flexion R": { "FN": { diag: "Right Shoulder flexion SMCD.", next: "FABER Test L" }, "any": { diag: "Right Shoulder flexion MD.", next: "FABER Test L" } },
+          
+          "FABER Test L": { "FN": { next: "FABER Test R" }, "DN": { next: "Passive FABER Test L" }, "any": { next: "FABER Test R" } },
+          "Passive FABER Test L": { "FN": { diag: "Left Pelvic SMCD.", next: "FABER Test R" }, "DN": { diag: "Left Hip/SI Joint MD.", next: "FABER Test R" }, "any": { next: "FABER Test R" } },
+          
+          "FABER Test R": { "FN": { next: "Modified Thomas Test L" }, "DN": { next: "Passive FABER Test R" }, "any": { next: "Modified Thomas Test L" } },
+          "Passive FABER Test R": { "FN": { diag: "Right Pelvic SMCD.", next: "Modified Thomas Test L" }, "DN": { diag: "Right Hip/SI Joint MD.", next: "Modified Thomas Test L" }, "any": { next: "Modified Thomas Test L" } },
+          
+          "Modified Thomas Test L": { "FN": { next: "Modified Thomas Test R" }, "any": { diag: "Left Hip Extension MD (Thomas).", next: "Modified Thomas Test R" } },
+          "Modified Thomas Test R": { "FN": { next: "Active Prone Hip Extension L" }, "any": { diag: "Right Hip Extension MD (Thomas).", next: "Active Prone Hip Extension L" } },
+          
+          "Active Prone Hip Extension L": { "FN": { next: "Active Prone Hip Extension R" }, "any": { next: "Passive Prone Hip Extension L" } },
+          "Passive Prone Hip Extension L": { "FN": { diag: "Left hip extension SMCD.", next: "Active Prone Hip Extension R" }, "DN": { diag: "Left hip extension MD.", next: "Active Prone Hip Extension R" }, "any": { diag: "Left hip extension pain.", next: "Active Prone Hip Extension R" } },
+          
+          "Active Prone Hip Extension R": { "FN": { diag: "Bilateral Extension Normal.", next: "EXIT" }, "any": { next: "Passive Prone Hip Extension R" } },
+          "Passive Prone Hip Extension R": { "FN": { diag: "Right hip extension SMCD.", next: "EXIT" }, "DN": { diag: "Right hip extension MD.", next: "EXIT" }, "any": { diag: "Right hip extension pain.", next: "EXIT" } }
+        }
+      },
+      "MS Rotation L": {
+        start: "Seated Torso Rotation L",
+        nodes: {
+          "Seated Torso Rotation L": { "FN": { next: "Lower Quarter ER Flow" }, "any": { next: "Active Lumbar Locked (IR) Ext/Rot L" } },
+          "Active Lumbar Locked (IR) Ext/Rot L": { "FN": { next: "Active Prone on Elbow Ext/Rot L" }, "any": { next: "Passive Lumbar Locked Ext/Rot L" } },
+          "Passive Lumbar Locked Ext/Rot L": { "FN": { diag: "Left Thorax ext/rot SMCD.", next: "Active Prone on Elbow Ext/Rot L" }, "DN": { diag: "Left Thorax ext/rot MD.", next: "Lower Quarter ER Flow" }, "any": { next: "Lower Quarter ER Flow" } },
+          "Active Prone on Elbow Ext/Rot L": { "FN": { diag: "Left Lumbar ext/rot SMCD.", next: "Lower Quarter ER Flow" }, "any": { next: "Passive Prone on Elbow Ext/Rot L" } },
+          "Passive Prone on Elbow Ext/Rot L": { "FN": { diag: "Left Lumbar ext/rot SMCD.", next: "Lower Quarter ER Flow" }, "DN": { diag: "Left Lumbar ext/rot MD.", next: "Lower Quarter ER Flow" }, "any": { next: "Lower Quarter ER Flow" } }
+        }
+      },
+      "MS Rotation R": {
+        start: "Seated Torso Rotation R",
+        nodes: {
+          "Seated Torso Rotation R": { "FN": { next: "Lower Quarter ER Flow" }, "any": { next: "Active Lumbar Locked (IR) Ext/Rot R" } },
+          "Active Lumbar Locked (IR) Ext/Rot R": { "FN": { next: "Active Prone on Elbow Ext/Rot R" }, "any": { next: "Passive Lumbar Locked Ext/Rot R" } },
+          "Passive Lumbar Locked Ext/Rot R": { "FN": { diag: "Right Thorax ext/rot SMCD.", next: "Active Prone on Elbow Ext/Rot R" }, "DN": { diag: "Right Thorax ext/rot MD.", next: "Lower Quarter ER Flow" }, "any": { next: "Lower Quarter ER Flow" } },
+          "Active Prone on Elbow Ext/Rot R": { "FN": { diag: "Right Lumbar ext/rot SMCD.", next: "Lower Quarter ER Flow" }, "any": { next: "Passive Prone on Elbow Ext/Rot R" } },
+          "Passive Prone on Elbow Ext/Rot R": { "FN": { diag: "Right Lumbar ext/rot SMCD.", next: "Lower Quarter ER Flow" }, "DN": { diag: "Right Lumbar ext/rot MD.", next: "Lower Quarter ER Flow" }, "any": { next: "Lower Quarter ER Flow" } }
+        }
+      },
+      "Lower Quarter ER Flow": {
+        start: "Active Prone Hip ER L",
+        nodes: {
+          "Active Prone Hip ER L": { "FN": { next: "Active Prone Hip ER R" }, "any": { next: "Passive Prone Hip ER L" } },
+          "Passive Prone Hip ER L": { "FN": { diag: "Left hip ER SMCD.", next: "Active Prone Hip ER R" }, "DN": { diag: "Left hip ER MD.", next: "Active Prone Hip ER R" }, "any": { next: "Active Prone Hip ER R" } },
+          "Active Prone Hip ER R": { "FN": { next: "Active Seated Tibial ER L" }, "any": { next: "Passive Prone Hip ER R" } },
+          "Passive Prone Hip ER R": { "FN": { diag: "Right hip ER SMCD.", next: "Active Seated Tibial ER L" }, "DN": { diag: "Right hip ER MD.", next: "Active Seated Tibial ER L" }, "any": { next: "Active Seated Tibial ER L" } },
+          "Active Seated Tibial ER L": { "FN": { next: "Active Seated Tibial ER R" }, "any": { next: "Passive Seated Tibial ER L" } },
+          "Passive Seated Tibial ER L": { "FN": { diag: "Left tibial ER SMCD.", next: "Active Seated Tibial ER R" }, "DN": { diag: "Left tibial ER MD.", next: "Active Seated Tibial ER R" }, "any": { next: "Active Seated Tibial ER R" } },
+          "Active Seated Tibial ER R": { "FN": { next: "Lower Quarter IR Flow" }, "any": { next: "Passive Seated Tibial ER R" } },
+          "Passive Seated Tibial ER R": { "FN": { diag: "Right tibial ER SMCD.", next: "Lower Quarter IR Flow" }, "DN": { diag: "Right tibial ER MD.", next: "Lower Quarter IR Flow" }, "any": { next: "Lower Quarter IR Flow" } }
+        }
+      },
+      "Lower Quarter IR Flow": {
+        start: "Active Prone Hip IR L",
+        nodes: {
+          "Active Prone Hip IR L": { "FN": { next: "Active Prone Hip IR R" }, "any": { next: "Stabilized Prone Internal Hip Rotation L" } },
+          "Stabilized Prone Internal Hip Rotation L": { "FN": { diag: "Left hip IR SMCD.", next: "Active Prone Hip IR R" }, "DN": { diag: "Left hip IR MD.", next: "Active Prone Hip IR R" }, "any": { next: "Active Prone Hip IR R" } },
+          "Active Prone Hip IR R": { "FN": { next: "Active Seated Tibial IR L" }, "any": { next: "Stabilized Prone Internal Hip Rotation R" } },
+          "Stabilized Prone Internal Hip Rotation R": { "FN": { diag: "Right hip IR SMCD.", next: "Active Seated Tibial IR L" }, "DN": { diag: "Right hip IR MD.", next: "Active Seated Tibial IR L" }, "any": { next: "Active Seated Tibial IR L" } },
+          "Active Seated Tibial IR L": { "FN": { next: "Active Seated Tibial IR R" }, "any": { next: "Passive Seated Tibial IR L" } },
+          "Passive Seated Tibial IR L": { "FN": { diag: "Left tibial IR SMCD.", next: "Active Seated Tibial IR R" }, "DN": { diag: "Left tibial IR MD.", next: "Active Seated Tibial IR R" }, "any": { next: "Active Seated Tibial IR R" } },
+          "Active Seated Tibial IR R": { "FN": { next: "EXIT" }, "any": { next: "Passive Seated Tibial IR R" } },
+          "Passive Seated Tibial IR R": { "FN": { diag: "Right tibial IR SMCD.", next: "EXIT" }, "DN": { diag: "Right tibial IR MD.", next: "EXIT" }, "any": { next: "EXIT" } }
+        }
+      },
+      "SLS": {
+        start: "Vestibular Test - CTSIB (Static)",
+        nodes: {
+          "Vestibular Test - CTSIB (Static)": { "FN": { next: "CTSIB (Dynamic)" }, "any": { diag: "Static vestibular SMCD.", next: "Half-Kneeling Narrow Base L" } },
+          "CTSIB (Dynamic)": { "FN": { next: "Half-Kneeling Narrow Base L" }, "any": { diag: "Dynamic vestibular SMCD.", next: "Half-Kneeling Narrow Base L" } },
+          
+          "Half-Kneeling Narrow Base L": { "FN": { next: "Half-Kneeling Narrow Base R" }, "any": { next: "Half-Kneeling Narrow Base R" } },
+          "Half-Kneeling Narrow Base R": { "FN": { next: "CHECK_Half-Kneeling Narrow Base L|Quadruped Diagonals L|CHECK_Half-Kneeling Narrow Base R" }, "any": { next: "CHECK_Half-Kneeling Narrow Base L|Quadruped Diagonals L|CHECK_Half-Kneeling Narrow Base R" } },
+          
+          "Quadruped Diagonals L": { "FN": { diag: "Left WB spine/core SMCD.", next: "CHECK_Half-Kneeling Narrow Base R|Quadruped Diagonals R|Active Tandem Dorsiflexion L" }, "any": { diag: "Left WB hip/core SMCD.", next: "CHECK_Half-Kneeling Narrow Base R|Quadruped Diagonals R|Active Tandem Dorsiflexion L" } },
+          "Quadruped Diagonals R": { "FN": { diag: "Right WB spine/core SMCD.", next: "Active Tandem Dorsiflexion L" }, "any": { diag: "Right WB hip/core SMCD.", next: "Active Tandem Dorsiflexion L" } },
+          
+          "Active Tandem Dorsiflexion L": { "FN": { next: "Active Tandem Dorsiflexion R" }, "any": { next: "Active Tandem Dorsiflexion R" } },
+          "Active Tandem Dorsiflexion R": { "FN": { next: "Active Tandem Plantarflexion L" }, "any": { next: "Active Tandem Plantarflexion L" } },
+          "Active Tandem Plantarflexion L": { "FN": { next: "Active Tandem Plantarflexion R" }, "any": { next: "Active Tandem Plantarflexion R" } },
+          "Active Tandem Plantarflexion R": { "FN": { next: "CHECK_Active Tandem Dorsiflexion L|Passive Dorsiflexion L (Knee Ext)|CHECK_Active Tandem Dorsiflexion R" }, "any": { next: "CHECK_Active Tandem Dorsiflexion L|Passive Dorsiflexion L (Knee Ext)|CHECK_Active Tandem Dorsiflexion R" } },
+          
+          "Passive Dorsiflexion L (Knee Ext)": { "FN": { diag: "Left Ankle dorsiflexion SMCD.", next: "CHECK_Active Tandem Dorsiflexion R|Passive Dorsiflexion R (Knee Ext)|CHECK_Active Tandem Plantarflexion L" }, "any": { diag: "Left Ankle dorsiflexion MD.", next: "CHECK_Active Tandem Dorsiflexion R|Passive Dorsiflexion R (Knee Ext)|CHECK_Active Tandem Plantarflexion L" } },
+          "Passive Dorsiflexion R (Knee Ext)": { "FN": { diag: "Right Ankle dorsiflexion SMCD.", next: "CHECK_Active Tandem Plantarflexion L|Passive Plantarflexion L|CHECK_Active Tandem Plantarflexion R" }, "any": { diag: "Right Ankle dorsiflexion MD.", next: "CHECK_Active Tandem Plantarflexion L|Passive Plantarflexion L|CHECK_Active Tandem Plantarflexion R" } },
+          
+          "Passive Plantarflexion L": { "FN": { diag: "Left Ankle plantarflexion SMCD.", next: "CHECK_Active Tandem Plantarflexion R|Passive Plantarflexion R|Active Seated Ankle Inversion L" }, "any": { diag: "Left Ankle plantarflexion MD.", next: "CHECK_Active Tandem Plantarflexion R|Passive Plantarflexion R|Active Seated Ankle Inversion L" } },
+          "Passive Plantarflexion R": { "FN": { diag: "Right Ankle plantarflexion SMCD.", next: "Active Seated Ankle Inversion L" }, "any": { diag: "Right Ankle plantarflexion MD.", next: "Active Seated Ankle Inversion L" } },
+          
+          "Active Seated Ankle Inversion L": { "FN": { next: "Active Seated Ankle Inversion R" }, "any": { next: "Active Seated Ankle Inversion R" } },
+          "Active Seated Ankle Inversion R": { "FN": { next: "Active Seated Ankle Eversion L" }, "any": { next: "Active Seated Ankle Eversion L" } },
+          "Active Seated Ankle Eversion L": { "FN": { next: "Active Seated Ankle Eversion R" }, "any": { next: "Active Seated Ankle Eversion R" } },
+          "Active Seated Ankle Eversion R": { "FN": { next: "CHECK_Active Seated Ankle Inversion L|Passive Ankle Inversion L|CHECK_Active Seated Ankle Inversion R" }, "any": { next: "CHECK_Active Seated Ankle Inversion L|Passive Ankle Inversion L|CHECK_Active Seated Ankle Inversion R" } },
+          
+          "Passive Ankle Inversion L": { "FN": { diag: "Left Ankle inversion SMCD.", next: "CHECK_Active Seated Ankle Inversion R|Passive Ankle Inversion R|CHECK_Active Seated Ankle Eversion L" }, "any": { diag: "Left Ankle inversion MD.", next: "CHECK_Active Seated Ankle Inversion R|Passive Ankle Inversion R|CHECK_Active Seated Ankle Eversion L" } },
+          "Passive Ankle Inversion R": { "FN": { diag: "Right Ankle inversion SMCD.", next: "CHECK_Active Seated Ankle Eversion L|Passive Ankle Eversion L|CHECK_Active Seated Ankle Eversion R" }, "any": { diag: "Right Ankle inversion MD.", next: "CHECK_Active Seated Ankle Eversion L|Passive Ankle Eversion L|CHECK_Active Seated Ankle Eversion R" } },
+          
+          "Passive Ankle Eversion L": { "FN": { diag: "Left Ankle eversion SMCD.", next: "CHECK_Active Seated Ankle Eversion R|Passive Ankle Eversion R|EXIT" }, "any": { diag: "Left Ankle eversion MD.", next: "CHECK_Active Seated Ankle Eversion R|Passive Ankle Eversion R|EXIT" } },
+          "Passive Ankle Eversion R": { "FN": { diag: "Right Ankle eversion SMCD.", next: "EXIT" }, "any": { diag: "Right Ankle eversion MD.", next: "EXIT" } }
+        }
+      },
+      "Deep Squat": {
+        start: "Active Half-Kneeling Dorsiflexion L",
+        nodes: {
+          "Active Half-Kneeling Dorsiflexion L": { "FN": { next: "Active Half-Kneeling Dorsiflexion R" }, "any": { next: "Passive Half-Kneeling Dorsiflexion L" } },
+          "Passive Half-Kneeling Dorsiflexion L": { "FN": { diag: "Left ankle dorsiflexion SMCD (Soleus).", next: "Active Half-Kneeling Dorsiflexion R" }, "DN": { diag: "Left ankle dorsiflexion MD (Soleus).", next: "Active Half-Kneeling Dorsiflexion R" }, "any": { next: "Active Half-Kneeling Dorsiflexion R" } },
+          "Active Half-Kneeling Dorsiflexion R": { "FN": { next: "Active Seated Ankle Inversion/Eversion L" }, "any": { next: "Passive Half-Kneeling Dorsiflexion R" } },
+          "Passive Half-Kneeling Dorsiflexion R": { "FN": { diag: "Right ankle dorsiflexion SMCD (Soleus).", next: "Active Seated Ankle Inversion/Eversion L" }, "DN": { diag: "Right ankle dorsiflexion MD (Soleus).", next: "Active Seated Ankle Inversion/Eversion L" }, "any": { next: "Active Seated Ankle Inversion/Eversion L" } },
+          "Active Seated Ankle Inversion/Eversion L": { "FN": { next: "Active Seated Ankle Inversion/Eversion R" }, "any": { next: "Passive Ankle Inversion/Eversion L" } },
+          "Passive Ankle Inversion/Eversion L": { "FN": { diag: "Left ankle inversion/eversion SMCD.", next: "Active Seated Ankle Inversion/Eversion R" }, "DN": { diag: "Left ankle inversion/eversion MD.", next: "Active Seated Ankle Inversion/Eversion R" }, "any": { next: "Active Seated Ankle Inversion/Eversion R" } },
+          "Active Seated Ankle Inversion/Eversion R": { "FN": { next: "Supine Knees to Chest (Shins)" }, "any": { next: "Passive Ankle Inversion/Eversion R" } },
+          "Passive Ankle Inversion/Eversion R": { "FN": { diag: "Right ankle inversion/eversion SMCD.", next: "Supine Knees to Chest (Shins)" }, "DN": { diag: "Right ankle inversion/eversion MD.", next: "Supine Knees to Chest (Shins)" }, "any": { next: "Supine Knees to Chest (Shins)" } },
+          "Supine Knees to Chest (Shins)": { "FN": { next: "Active Seated Hip IR L" }, "any": { next: "Supine Knees to Chest (Thighs)" } },
+          "Supine Knees to Chest (Thighs)": { "FN": { diag: "Bilateral posterior chain MD.", next: "Active Seated Hip IR L" }, "DN": { diag: "Bilateral hip flexion MD.", next: "Active Seated Hip IR L" }, "any": { diag: "Hip joint pain.", next: "Active Seated Hip IR L" } },
+          "Active Seated Hip IR L": { "FN": { next: "Active Seated Hip IR R" }, "any": { next: "Passive Seated Hip IR L" } },
+          "Passive Seated Hip IR L": { "FN": { diag: "Left hip IR SMCD.", next: "Active Seated Hip IR R" }, "DN": { diag: "Left hip IR MD.", next: "Active Seated Hip IR R" }, "any": { next: "Active Seated Hip IR R" } },
+          "Active Seated Hip IR R": { "FN": { next: "Active Seated Hip ER L" }, "any": { next: "Passive Seated Hip IR R" } },
+          "Passive Seated Hip IR R": { "FN": { diag: "Right hip IR SMCD.", next: "Active Seated Hip ER L" }, "DN": { diag: "Right hip IR MD.", next: "Active Seated Hip ER L" }, "any": { next: "Active Seated Hip ER L" } },
+          "Active Seated Hip ER L": { "FN": { next: "Active Seated Hip ER R" }, "any": { next: "Passive Seated Hip ER L" } },
+          "Passive Seated Hip ER L": { "FN": { diag: "Left hip ER SMCD.", next: "Active Seated Hip ER R" }, "DN": { diag: "Left hip ER MD.", next: "Active Seated Hip ER R" }, "any": { next: "Active Seated Hip ER R" } },
+          "Active Seated Hip ER R": { "FN": { diag: "Squat Isolation Clear.", next: "EXIT" }, "any": { next: "Passive Seated Hip ER R" } },
+          "Passive Seated Hip ER R": { "FN": { diag: "Right hip ER SMCD.", next: "EXIT" }, "DN": { diag: "Right hip ER MD.", next: "EXIT" }, "any": { next: "EXIT" } }
+        }
+      }
+    };
+
+    function show(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function initTT() {
+      state.client = document.getElementById('client-name').value;
+      if (!state.client) return alert("Patient Name Required");
+      state.resultsLog = []; state.boQueue = []; state.ttIndex = 0; state.mode = "TT";
+      show('screen-main');
+      updateUI();
+    }
+
+    function saveState() { historyStack.push(JSON.parse(JSON.stringify(state))); if (historyStack.length > 40) historyStack.shift(); }
+    
+    function goBack() { 
+      if (historyStack.length > 0) { 
+        state = historyStack.pop(); 
+        document.getElementById('diag-container').style.display = 'none'; 
+        updateUI(); 
+      } 
+    }
+
+    const scoreColor = (s) => s === 'FN' ? '#10b981' : (s.includes('P') ? '#ef4444' : '#f59e0b');
+
+    function updateUI() {
+      const header = document.getElementById('ui-header');
+      const testTitle = document.getElementById('display-test');
+      const patternLabel = document.getElementById('display-pattern');
+      const breadcrumb = document.getElementById('breadcrumb-trail');
+
+      let trailHTML = "";
+
+      if (state.mode === "TT") {
+        header.className = "header header-tt"; header.innerText = "TOP TIER SCREENING";
+        state.currentTest = TT_ORDER[state.ttIndex]; testTitle.innerText = state.currentTest; patternLabel.innerText = "Global Scan Sequence";
+        
+        let historySet = state.resultsLog.filter(r => r.phase === "TOP TIER");
+        historySet.forEach(r => {
+          trailHTML += `<div class="breadcrumb-item"><span style="color:#64748b; display:block; margin-bottom:4px;">${r.test}</span><b style="color:${scoreColor(r.score)}">${r.score}</b></div>`;
+        });
+        trailHTML += `<div class="breadcrumb-item current-tt"><span style="color:#1e293b; display:block;">Current Scan</span></div>`;
+
+      } else {
+        header.className = "header header-bo"; header.innerText = "BREAKOUT AUDIT";
+        patternLabel.innerText = state.activePattern + " Sequence"; testTitle.innerText = state.currentTest;
+        
+        let historySet = state.resultsLog.filter(r => r.phase === "BREAKOUT" && r.pattern === state.activePattern);
+        historySet.forEach(r => {
+          trailHTML += `<div class="breadcrumb-item"><span style="color:#64748b; display:block; margin-bottom:4px;">${r.test}</span><b style="color:${scoreColor(r.score)}">${r.score}</b></div>`;
+        });
+        trailHTML += `<div class="breadcrumb-item current"><span style="color:#1e293b; display:block;">Current Step</span></div>`;
+      }
+      
+      breadcrumb.innerHTML = trailHTML;
+      setTimeout(() => breadcrumb.scrollTop = breadcrumb.scrollHeight, 50);
+    }
+
+    function handleInput(score) {
+      saveState();
+      if (state.mode === "TT") {
+        state.resultsLog.push({ phase: "TOP TIER", pattern: state.currentTest, test: state.currentTest, score: score });
+        if (score !== "FN") state.boQueue.push(state.currentTest);
+        state.ttIndex++;
+        if (state.ttIndex < TT_ORDER.length) updateUI(); else startBreakouts();
+      } else { processBreakout(score); }
+    }
+
+    function startBreakouts() { if (state.boQueue.length === 0) return finishAssessment(); state.mode = "BO"; nextPattern(); }
+
+    function nextPattern() {
+      if (state.boQueue.length === 0) return finishAssessment();
+      state.activePattern = state.boQueue.shift();
+      let key = state.activePattern;
+      
+      if (key.includes("Cervical Rotation")) key = "Cervical Rotation";
+      if (key.includes("SLS")) key = "SLS";
+      
+      state.currentTest = SFMA_LOGIC[key].start;
+      document.getElementById('diag-container').style.display = 'none';
+      updateUI();
+    }
+
+    function processBreakout(score) {
+      let key = state.activePattern;
+      
+      if (key.includes("Cervical Rotation")) key = "Cervical Rotation";
+      if (key.includes("SLS")) key = "SLS";
+      if (key.includes("Flow")) key = key;
+
+      const node = SFMA_LOGIC[key].nodes[state.currentTest];
+      const branch = node[score] || node["any"];
+
+      if (branch.diag) {
+        document.getElementById('diag-container').style.display = 'block';
+        document.getElementById('diag-output').innerText = branch.diag;
+        state.resultsLog.push({ phase: "BREAKOUT", pattern: state.activePattern, test: state.currentTest, score: score, diag: branch.diag });
+      } else { state.resultsLog.push({ phase: "BREAKOUT", pattern: state.activePattern, test: state.currentTest, score: score }); }
+
+      let nextTarget = branch.next;
+
+      function resolveNext(target) {
+        if (target && target.startsWith("CHECK_")) {
+          let parts = target.split("|"); 
+          let testToCheck = parts[0].replace("CHECK_", "");
+          let ifFailed = parts[1];
+          let ifPassed = parts[2];
+          
+          let logEntry = state.resultsLog.find(r => r.test === testToCheck);
+          if (logEntry && logEntry.score !== "FN") return resolveNext(ifFailed);
+          else return resolveNext(ifPassed);
+        }
+        return target;
+      }
+
+      nextTarget = resolveNext(nextTarget);
+
+      if (nextTarget === "EXIT") { setTimeout(nextPattern, 1200); }
+      else if (nextTarget.includes("Flow")) { state.activePattern = nextTarget; state.currentTest = SFMA_LOGIC[nextTarget].start; setTimeout(updateUI, 500); }
+      else { state.currentTest = nextTarget; setTimeout(updateUI, 500); }
+    }
+
+    function finishAssessment() {
+      show('screen-loading');
+      google.script.run
+        .withSuccessHandler((pdfUrls) => { 
+          show('screen-success');
+          document.getElementById('btn-download-audit').onclick = () => window.open(pdfUrls.auditUrl, '_blank');
+          document.getElementById('btn-download-program').onclick = () => window.open(pdfUrls.programUrl, '_blank');
+        })
+        .withFailureHandler((error) => {
+          alert("Google encountered an error generating the PDFs: " + error.message);
+          show('screen-main'); 
+        })
+        .processAssessment(state.client, state.resultsLog);
+    }
+  </script>
+</body>
+</html>
