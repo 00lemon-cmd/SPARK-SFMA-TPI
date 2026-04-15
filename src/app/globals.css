@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-spark-bg min-h-screen text-slate-800;
+  }
+
+  ::selection {
+    @apply bg-spark-primary/20;
+  }
+}
+
+@layer components {
+  .breadcrumb-vertical::-webkit-scrollbar {
+    width: 6px;
+  }
+  .breadcrumb-vertical::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded;
+  }
+  .breadcrumb-vertical::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+}
+
+@layer utilities {
+  .hover\:brightness-110:hover {
+    filter: brightness(1.1);
+  }
+}
+
+@media print {
+  body { background: white !important; }
+  .no-print { display: none !important; }
+  .print-break { page-break-before: always; }
+}
