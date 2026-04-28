@@ -7,9 +7,16 @@ import { TT_ORDER } from "@/engine/top-tier";
 import { SFMA_LOGIC } from "@/engine/sfma-tree";
 import { processBreakoutStep } from "@/engine/breakout-processor";
 import { useAssessmentStore } from "@/db/assessment-store";
+import { useAuditStore } from "@/db/audit-store";
 import Timeline from "@/components/Timeline";
 import TestCard from "@/components/TestCard";
 import DiagnosisCard from "@/components/DiagnosisCard";
+
+function resolveChainKey(pattern: string): string {
+  if (pattern.includes("Cervical Rotation")) return "Cervical Rotation";
+  if (pattern.includes("SLS")) return "SLS";
+  return pattern;
+}
 
 function initialState(client: string, hand: Handedness): AssessmentState {
   return {
@@ -37,6 +44,7 @@ function AssessmentContent() {
   const [diagnosis, setDiagnosis] = useState<string | null>(null);
   const [transitioning, setTransitioning] = useState(false);
   const saveAssessment = useAssessmentStore((s) => s.save);
+  const addAudit = useAuditStore((s) => s.add);
   const savedRef = useRef(false);
 
   useEffect(() => {
@@ -70,17 +78,13 @@ function AssessmentContent() {
   const finishAndNavigate = useCallback(
     (st: AssessmentState) => {
       if (!savedRef.current) {
-        saveAssessment(st.client, st.handedness, st.resultsLog);
+        const saved = saveAssessment(st.client, st.handedness, st.resultsLog);
+        addAudit({ action: "assessment_saved", client: st.client });
         savedRef.current = true;
+        router.push(`/report?id=${saved.id}`);
       }
-      const p = new URLSearchParams({
-        client: st.client,
-        hand: st.handedness,
-        results: JSON.stringify(st.resultsLog),
-      });
-      router.push(`/report?${p.toString()}`);
     },
-    [router, saveAssessment]
+    [addAudit, router, saveAssessment]
   );
 
   const startBreakouts = useCallback(
@@ -155,8 +159,10 @@ function AssessmentContent() {
           score,
         };
         const newLog = [...state.resultsLog, entry];
+        const newKey = resolveChainKey(state.currentTest);
+        const alreadyQueued = state.boQueue.some((p) => resolveChainKey(p) === newKey);
         const newQueue =
-          score !== "FN"
+          score !== "FN" && !alreadyQueued
             ? [...state.boQueue, state.currentTest]
             : state.boQueue;
         const nextIdx = state.ttIndex + 1;
@@ -218,15 +224,31 @@ function AssessmentContent() {
             setTransitioning(false);
           }, 1200);
         } else if (result.subPatternSwitch) {
-          const subChain = SFMA_LOGIC[result.subPatternSwitch];
-          setTransitioning(true);
-          setState((s) => ({
-            ...s,
-            resultsLog: newLog,
-            activePattern: result.subPatternSwitch!,
-            currentTest: subChain ? subChain.start : result.nextTest,
-          }));
-          setTimeout(() => setTransitioning(false), 500);
+          const alreadyRan = newLog.some(
+            (r) => r.pattern === result.subPatternSwitch
+          );
+          if (alreadyRan) {
+            setTransitioning(true);
+            const newState: AssessmentState = {
+              ...state,
+              resultsLog: newLog,
+            };
+            setState(newState);
+            setTimeout(() => {
+              nextPattern(newState);
+              setTransitioning(false);
+            }, 300);
+          } else {
+            const subChain = SFMA_LOGIC[result.subPatternSwitch];
+            setTransitioning(true);
+            setState((s) => ({
+              ...s,
+              resultsLog: newLog,
+              activePattern: result.subPatternSwitch!,
+              currentTest: subChain ? subChain.start : result.nextTest,
+            }));
+            setTimeout(() => setTransitioning(false), 500);
+          }
         } else {
           setTransitioning(true);
           setState((s) => ({
@@ -305,6 +327,7 @@ function AssessmentContent() {
           />
           <TestCard
             testName={state.currentTest}
+            pattern={state.mode === "BO" ? state.activePattern : state.currentTest}
             onScore={handleScore}
             disabled={transitioning}
           />

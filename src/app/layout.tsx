@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import AuthGuard from "@/components/AuthGuard";
 
 export const metadata: Metadata = {
   title: "Spark SFMA | Clinical Assessment Tool",
@@ -22,7 +23,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased">
-        <ErrorBoundary>{children}</ErrorBoundary>
+        <ErrorBoundary>
+          <AuthGuard>{children}</AuthGuard>
+        </ErrorBoundary>
       </body>
     </html>
   );

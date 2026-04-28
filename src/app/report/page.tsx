@@ -4,6 +4,8 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import type { Handedness, ResultEntry } from "@/lib/types";
 import { aggregateDiagnoses } from "@/engine/diagnosis-aggregator";
+import { useAuditStore } from "@/db/audit-store";
+import { useAssessmentStore } from "@/db/assessment-store";
 import ClinicalAudit from "@/report/clinical-audit";
 import ProgramReport from "@/report/program";
 import TPICrossRef from "@/report/tpi-crossref";
@@ -17,18 +19,30 @@ type Tab = "audit" | "program" | "tpi";
 
 function ReportContent() {
   const params = useSearchParams();
-  const client = params.get("client") || "Unknown";
-  const hand = (params.get("hand") as Handedness) || "right";
+  const getById = useAssessmentStore((s) => s.getById);
+
+  const assessment = useMemo(() => {
+    const idParam = params.get("id");
+    if (idParam) {
+      return getById(Number(idParam));
+    }
+    return undefined;
+  }, [params, getById]);
+
+  const client = assessment?.client ?? params.get("client") ?? "Unknown";
+  const hand = (assessment?.handedness ?? params.get("hand") ?? "right") as Handedness;
   const results: ResultEntry[] = useMemo(() => {
+    if (assessment) return assessment.results;
     try {
       return JSON.parse(params.get("results") || "[]");
     } catch {
       return [];
     }
-  }, [params]);
+  }, [assessment, params]);
 
   const [tab, setTab] = useState<Tab>("audit");
   const agg = useMemo(() => aggregateDiagnoses(results), [results]);
+  const addAudit = useAuditStore((s) => s.add);
 
   const tabs: { id: Tab; label: string; color: string }[] = [
     { id: "audit", label: "Clinical Audit", color: "bg-spark-audit" },
@@ -106,25 +120,35 @@ function ReportContent() {
 
         <div className="flex gap-3 mt-6 justify-center flex-wrap">
           <button
-            onClick={() => exportClinicalAuditPDF(client, agg, results)}
+            onClick={() => {
+              addAudit({ action: "pdf_export_audit", client });
+              exportClinicalAuditPDF(client, agg, results);
+            }}
             className="px-5 py-3 rounded-md bg-spark-audit text-white font-bold text-sm hover:brightness-110 transition-all"
           >
             Export Audit PDF
           </button>
           <button
-            onClick={() => exportProgramPDF(client, agg)}
+            onClick={() => {
+              addAudit({ action: "pdf_export_program", client });
+              exportProgramPDF(client, agg);
+            }}
             className="px-5 py-3 rounded-md bg-spark-program text-white font-bold text-sm hover:brightness-110 transition-all"
           >
             Export Program PDF
           </button>
           <button
-            onClick={() => exportTPICrossRefPDF(client, hand, agg)}
+            onClick={() => {
+              addAudit({ action: "pdf_export_tpi", client });
+              exportTPICrossRefPDF(client, hand, agg);
+            }}
             className="px-5 py-3 rounded-md bg-blue-700 text-white font-bold text-sm hover:brightness-110 transition-all"
           >
             Export TPI PDF
           </button>
           <button
             onClick={() => {
+              addAudit({ action: "pdf_export_all", client });
               exportClinicalAuditPDF(client, agg, results);
               exportProgramPDF(client, agg);
               exportTPICrossRefPDF(client, hand, agg);

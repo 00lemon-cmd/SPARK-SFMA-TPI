@@ -234,6 +234,71 @@ export const MEDICAL_L2_MAP: SwingFaultMapping[] = [
     ],
   },
   {
+    faultId: "loss_of_posture",
+    mobilityDysfunctions: [
+      { description: "Limited hinge / hip flexion mobility", laterality: "BILATERAL", sfmaTests: ["Multi-Segmental Flexion", "Deep Squat"], type: "MD" },
+      { description: "Limited thoracic extension", laterality: "BILATERAL", sfmaTests: ["Multi-Segmental Extension"], type: "MD" },
+      { description: "Limited ankle dorsiflexion", laterality: "BILATERAL", sfmaTests: ["Deep Squat", "SLS L", "SLS R"], type: "MD" },
+    ],
+    smcdDysfunctions: [
+      { description: "Poor anterior core / anti-extension control during shoulder turn", laterality: "BILATERAL", sfmaTests: ["Multi-Segmental Flexion", "Multi-Segmental Extension", "MS Rotation L", "MS Rotation R"], type: "SMCD" },
+      { description: "Glute inhibition limiting stable pelvis", laterality: "BILATERAL", sfmaTests: ["Multi-Segmental Extension"], type: "SMCD" },
+    ],
+  },
+  {
+    faultId: "flat_shoulder_plane",
+    mobilityDysfunctions: [
+      { description: "Limited thoracic rotation", laterality: "BILATERAL", sfmaTests: ["MS Rotation L", "MS Rotation R"], type: "MD" },
+      { description: "Limited shoulder elevation / scapular upward rotation", laterality: "BILATERAL", sfmaTests: ["UE Pattern 2 L", "UE Pattern 2 R"], type: "MD" },
+    ],
+    smcdDysfunctions: [
+      { description: "Poor serratus / lower trapezius timing", laterality: "BILATERAL", sfmaTests: ["UE Pattern 1 L", "UE Pattern 1 R", "UE Pattern 2 L", "UE Pattern 2 R"], type: "SMCD" },
+    ],
+  },
+  {
+    faultId: "flying_elbow",
+    mobilityDysfunctions: [
+      { description: "Limited trail shoulder external rotation", laterality: "TRAIL", sfmaTests: ["UE Pattern 2 L", "UE Pattern 2 R"], type: "MD" },
+      { description: "Limited thoracic rotation", laterality: "TRAIL", sfmaTests: ["MS Rotation L", "MS Rotation R"], type: "MD" },
+    ],
+    smcdDysfunctions: [
+      { description: "Poor trail scapular stability in elevation", laterality: "TRAIL", sfmaTests: ["UE Pattern 1 L", "UE Pattern 1 R"], type: "SMCD" },
+    ],
+  },
+  {
+    faultId: "hiking",
+    mobilityDysfunctions: [
+      { description: "Limited lateral line / QL mobility", laterality: "BILATERAL", sfmaTests: ["MS Rotation L", "MS Rotation R", "Multi-Segmental Extension"], type: "MD" },
+      { description: "Asymmetric hip or adductor mobility", laterality: "EITHER", sfmaTests: ["Deep Squat", "SLS L", "SLS R"], type: "MD" },
+    ],
+    smcdDysfunctions: [
+      { description: "Poor lateral core / oblique control in downswing", laterality: "BILATERAL", sfmaTests: ["MS Rotation L", "MS Rotation R"], type: "SMCD" },
+      { description: "Glute medius weakness affecting lateral stability", laterality: "BILATERAL", sfmaTests: ["SLS L", "SLS R"], type: "SMCD" },
+    ],
+  },
+  {
+    faultId: "reverse_pivot",
+    mobilityDysfunctions: [
+      { description: "Limited trail hip internal rotation for load", laterality: "TRAIL", sfmaTests: ["Deep Squat"], type: "MD" },
+      { description: "Limited thoracic rotation in backswing", laterality: "TRAIL", sfmaTests: ["MS Rotation L", "MS Rotation R"], type: "MD" },
+    ],
+    smcdDysfunctions: [
+      { description: "Poor pressure shift / sequencing into trail side", laterality: "BILATERAL", sfmaTests: ["MS Rotation L", "MS Rotation R", "Multi-Segmental Extension"], type: "SMCD" },
+      { description: "Balance or single-leg stability limiting pivot", laterality: "BILATERAL", sfmaTests: ["SLS L", "SLS R"], type: "SMCD" },
+    ],
+  },
+  {
+    faultId: "scooping",
+    mobilityDysfunctions: [
+      { description: "Limited lead wrist extension / forearm mobility", laterality: "LEAD", sfmaTests: ["UE Pattern 1 L", "UE Pattern 1 R", "UE Pattern 2 L", "UE Pattern 2 R"], type: "MD" },
+      { description: "Limited thoracic rotation", laterality: "BILATERAL", sfmaTests: ["MS Rotation L", "MS Rotation R"], type: "MD" },
+    ],
+    smcdDysfunctions: [
+      { description: "Early hand release / timing deficit", laterality: "BILATERAL", sfmaTests: ["UE Pattern 1 L", "UE Pattern 1 R"], type: "SMCD" },
+      { description: "Core instability forcing compensatory hand flip", laterality: "BILATERAL", sfmaTests: ["Multi-Segmental Extension", "MS Rotation L", "MS Rotation R"], type: "SMCD" },
+    ],
+  },
+  {
     faultId: "c_posture",
     mobilityDysfunctions: [
       { description: "Thoracic kyphosis / limited thoracic extension", laterality: "BILATERAL", sfmaTests: ["Multi-Segmental Extension"], type: "MD" },

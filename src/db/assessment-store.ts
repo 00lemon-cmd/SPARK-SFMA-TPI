@@ -1,9 +1,11 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { CompletedAssessment, Handedness, ResultEntry } from "@/lib/types";
+import { getRetentionDays } from "@/lib/security-config";
 
 interface AssessmentStore {
   assessments: CompletedAssessment[];
+  pruneExpired: () => void;
   save: (client: string, handedness: Handedness, results: ResultEntry[]) => CompletedAssessment;
   remove: (id: number) => void;
   getById: (id: number) => CompletedAssessment | undefined;
@@ -20,7 +22,19 @@ export const useAssessmentStore = create<AssessmentStore>()(
     (set, get) => ({
       assessments: [],
 
+      pruneExpired() {
+        const retentionDays = getRetentionDays();
+        const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+        set((state) => ({
+          assessments: state.assessments.filter((a) => {
+            const time = new Date(a.date).getTime();
+            return Number.isFinite(time) && time >= cutoff;
+          }),
+        }));
+      },
+
       save(client, handedness, results) {
+        get().pruneExpired();
         const id = nextId(get().assessments);
         const entry: CompletedAssessment = {
           id,
