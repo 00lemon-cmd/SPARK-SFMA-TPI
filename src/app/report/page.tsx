@@ -114,6 +114,7 @@ function ReportContent() {
               client={client}
               handedness={hand}
               agg={agg}
+              assessmentResults={results}
             />
           )}
         </div>

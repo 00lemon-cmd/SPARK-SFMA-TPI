@@ -48,6 +48,12 @@ export default function IntakePage() {
     router.push(`/swing-audit?${params.toString()}`);
   }
 
+  function startTpiQuick() {
+    addAudit({ action: "tpi_quick_started", client: name.trim() });
+    const params = new URLSearchParams({ client: name.trim(), hand: handedness });
+    router.push(`/tpi-quick?${params.toString()}`);
+  }
+
   function viewReport(a: (typeof assessments)[0]) {
     addAudit({ action: "report_viewed", client: a.client });
     router.push(`/report?id=${a.id}`);
@@ -140,6 +146,18 @@ export default function IntakePage() {
               </div>
               <p className="text-sm text-slate-500 mb-5">Choose an assessment pathway:</p>
               <div className="space-y-3">
+                <button
+                  onClick={startTpiQuick}
+                  className="w-full rounded-lg border-2 border-indigo-600 bg-indigo-50 p-5 text-left hover:bg-indigo-100 transition-all group"
+                >
+                  <div className="font-bold text-indigo-900 text-base mb-1 group-hover:text-indigo-950">
+                    TPI quick lookup
+                  </div>
+                  <p className="text-xs text-indigo-700/85">
+                    Dashboard of all swing characteristics: instant SFMA priorities, Level 1 screens,
+                    BSC-related patterns, and starter exercises — no SFMA session required.
+                  </p>
+                </button>
                 <button
                   onClick={startSwingAudit}
                   className="w-full rounded-lg border-2 border-blue-600 bg-blue-50 p-5 text-left hover:bg-blue-100 transition-all group"

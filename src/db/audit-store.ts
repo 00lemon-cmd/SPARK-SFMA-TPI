@@ -8,6 +8,7 @@ export type AuditAction =
   | "assessment_deleted"
   | "report_viewed"
   | "swing_audit_started"
+  | "tpi_quick_started"
   | "pdf_export_audit"
   | "pdf_export_program"
   | "pdf_export_tpi"

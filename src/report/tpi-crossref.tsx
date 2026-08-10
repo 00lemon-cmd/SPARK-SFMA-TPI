@@ -17,6 +17,8 @@ interface Props {
     breakouts: Map<string, ResultEntry[]>;
     terminalDiagnoses: ResultEntry[];
   };
+  /** When provided (e.g. from completed SFMA), TPI→SFMA lists omit tests/chains already FN or already broken out. */
+  assessmentResults?: ResultEntry[];
 }
 
 type TPITab = "sfma_to_tpi" | "tpi_to_sfma";
@@ -29,7 +31,7 @@ const SWING_AUDIT_PHASE_ORDER: Record<SwingPhase, number> = {
   other: 4,
 };
 
-export default function TPICrossRef({ client, handedness, agg }: Props) {
+export default function TPICrossRef({ client, handedness, agg, assessmentResults }: Props) {
   const [tpiTab, setTpiTab] = useState<TPITab>("sfma_to_tpi");
   const [selectedFaults, setSelectedFaults] = useState<Set<string>>(new Set());
   const sides = resolveLeadTrail(handedness);
@@ -63,8 +65,12 @@ export default function TPICrossRef({ client, handedness, agg }: Props) {
 
   const sfmaRecommendations = useMemo(() => {
     if (selectedFaults.size === 0) return null;
-    return recommendSFMATests(Array.from(selectedFaults), handedness);
-  }, [selectedFaults, handedness]);
+    return recommendSFMATests(
+      Array.from(selectedFaults),
+      handedness,
+      assessmentResults
+    );
+  }, [selectedFaults, handedness, assessmentResults]);
 
   function toggleFault(id: string) {
     setSelectedFaults((prev) => {
@@ -238,6 +244,22 @@ export default function TPICrossRef({ client, handedness, agg }: Props) {
 
           {sfmaRecommendations && (
             <div className="space-y-4">
+              {assessmentResults && assessmentResults.length > 0 && (
+                <p className="text-xs text-slate-600 bg-slate-100 border border-slate-200 rounded-md px-3 py-2">
+                  SFMA tests and breakout chains below omit items already cleared (FN) or already
+                  performed in this assessment&apos;s log.
+                </p>
+              )}
+              {sfmaRecommendations.topTierTests.length === 0 &&
+                sfmaRecommendations.topTierTestsMd.length === 0 &&
+                sfmaRecommendations.topTierTestsSmcd.length === 0 &&
+                sfmaRecommendations.breakoutChains.length === 0 &&
+                sfmaRecommendations.dysfunctions.length === 0 && (
+                  <p className="text-sm text-slate-600 italic border border-slate-200 rounded-md px-3 py-2 bg-white">
+                    No remaining SFMA targets for this fault selection — everything mapped here was
+                    already FN or already broken out in this assessment.
+                  </p>
+                )}
               <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-3">
                 <div>
                   <h3 className="font-bold text-emerald-800 text-sm mb-1">
@@ -336,23 +358,30 @@ export default function TPICrossRef({ client, handedness, agg }: Props) {
                   Dysfunctions to Screen For
                 </h3>
                 <div className="space-y-1">
-                  {sfmaRecommendations.dysfunctions.map((d, i) => (
-                    <div key={i} className="text-sm text-slate-600">
-                      <span
-                        className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold mr-1.5 ${
-                          d.type === "MD"
-                            ? "bg-orange-100 text-orange-700"
-                            : "bg-blue-100 text-blue-700"
-                        }`}
-                      >
-                        {d.type}
-                      </span>
-                      {d.description}
-                      <span className="text-slate-400 ml-1 text-xs">
-                        ({d.laterality})
-                      </span>
-                    </div>
-                  ))}
+                  {sfmaRecommendations.dysfunctions.length > 0 ? (
+                    sfmaRecommendations.dysfunctions.map((d, i) => (
+                      <div key={i} className="text-sm text-slate-600">
+                        <span
+                          className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold mr-1.5 ${
+                            d.type === "MD"
+                              ? "bg-orange-100 text-orange-700"
+                              : "bg-blue-100 text-blue-700"
+                          }`}
+                        >
+                          {d.type}
+                        </span>
+                        {d.description}
+                        <span className="text-slate-400 ml-1 text-xs">
+                          ({d.laterality})
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-500 italic">
+                      No remaining dysfunction rows for this selection relative to the current
+                      assessment log.
+                    </p>
+                  )}
                 </div>
               </div>
 

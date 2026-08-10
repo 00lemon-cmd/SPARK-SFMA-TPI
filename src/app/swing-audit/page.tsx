@@ -8,6 +8,7 @@ import { SWING_FAULTS } from "@/tpi/swing-faults";
 import { L1_SCREENS } from "@/tpi/level1-screens";
 import { BROTHER_SISTER } from "@/tpi/brother-sister";
 import { recommendSFMATests } from "@/tpi/tpi-to-sfma";
+import { useAssessmentStore } from "@/db/assessment-store";
 
 const PHASE_LABELS: Record<SwingPhase, string> = {
   setup: "Setup",
@@ -26,6 +27,13 @@ function SwingAuditContent() {
   const handedness = (params.get("hand") as Handedness) || "right";
   const sides = resolveLeadTrail(handedness);
 
+  const asidParam = params.get("asid");
+  const assessmentResultsForFilter = useAssessmentStore((s) => {
+    const id = Number(asidParam ?? "");
+    if (!Number.isFinite(id) || id <= 0) return undefined;
+    return s.getById(id)?.results;
+  });
+
   const [selectedFaults, setSelectedFaults] = useState<Set<string>>(new Set());
 
   const faultsByPhase = useMemo(() => {
@@ -43,8 +51,12 @@ function SwingAuditContent() {
 
   const recommendations = useMemo(() => {
     if (selectedFaults.size === 0) return null;
-    return recommendSFMATests(Array.from(selectedFaults), handedness);
-  }, [selectedFaults, handedness]);
+    return recommendSFMATests(
+      Array.from(selectedFaults),
+      handedness,
+      assessmentResultsForFilter
+    );
+  }, [selectedFaults, handedness, assessmentResultsForFilter]);
 
   const linkedL1Screens = useMemo(
     () =>
@@ -102,6 +114,12 @@ function SwingAuditContent() {
 
           <p className="text-sm text-slate-500 mb-4 text-center">
             Select the swing faults you observe. Recommendations update automatically.
+            {assessmentResultsForFilter && assessmentResultsForFilter.length > 0 && (
+              <span className="block mt-1 text-xs text-emerald-700 font-semibold">
+                SFMA suggestions exclude tests/chains already cleared in assessment{" "}
+                {asidParam ? `#${asidParam}` : ""}.
+              </span>
+            )}
           </p>
 
           {PHASE_ORDER.map((phase) => {
@@ -248,21 +266,28 @@ function SwingAuditContent() {
                 Dysfunctions to Screen For
               </h2>
               <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
-                {recommendations.dysfunctions.map((d, i) => (
-                  <div key={i} className="text-sm text-slate-600">
-                    <span
-                      className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold mr-1.5 ${
-                        d.type === "MD"
-                          ? "bg-orange-100 text-orange-700"
-                          : "bg-blue-100 text-blue-700"
-                      }`}
-                    >
-                      {d.type}
-                    </span>
-                    {d.description}
-                    <span className="text-slate-400 ml-1 text-xs">({d.laterality})</span>
-                  </div>
-                ))}
+                {recommendations.dysfunctions.length > 0 ? (
+                  recommendations.dysfunctions.map((d, i) => (
+                    <div key={i} className="text-sm text-slate-600">
+                      <span
+                        className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold mr-1.5 ${
+                          d.type === "MD"
+                            ? "bg-orange-100 text-orange-700"
+                            : "bg-blue-100 text-blue-700"
+                        }`}
+                      >
+                        {d.type}
+                      </span>
+                      {d.description}
+                      <span className="text-slate-400 ml-1 text-xs">({d.laterality})</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400 italic">
+                    No remaining dysfunction rows — all linked SFMA tests are covered in the loaded
+                    assessment.
+                  </p>
+                )}
               </div>
             </div>
 

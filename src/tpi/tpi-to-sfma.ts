@@ -1,7 +1,12 @@
-import type { Handedness, Laterality, TPIDysfunction } from "@/lib/types";
+import type { Handedness, Laterality, ResultEntry, TPIDysfunction } from "@/lib/types";
 import { MEDICAL_L2_MAP } from "./medical-l2-map";
 import { resolveLeadTrail } from "@/lib/types";
 import { TT_ORDER } from "@/engine/top-tier";
+import {
+  sortBreakoutChainNames,
+  sortBreakoutQueue,
+  stripTopTierSideSuffix,
+} from "@/engine/assessment-helpers";
 
 function sortTestsByTopTierOrder(tests: Set<string>): string[] {
   const orderIndex = new Map<string, number>(
@@ -14,8 +19,8 @@ function sortTestsByTopTierOrder(tests: Set<string>): string[] {
   });
 }
 
-/** Map pattern tests to lead/trail side labels when dysfunction is single-sided. */
-function resolvePatternTestName(
+/** Map catalog L/R test tokens to patient lead/trail for MD/SMFA test names. */
+export function resolveTopTierTestName(
   test: string,
   laterality: Laterality,
   lead: string,
@@ -46,9 +51,66 @@ export interface SFMARecommendation {
   dysfunctions: TPIDysfunction[];
 }
 
+/**
+ * Top-tier cleared at screening (FN), or that pattern’s breakout was already executed in this log.
+ */
+export function isSfmaTopTierSatisfiedInLog(testName: string, log: ResultEntry[]): boolean {
+  const top = log.filter(
+    (e) => e.phase === "TOP_TIER" && e.test === testName
+  );
+  if (top.length > 0) {
+    const last = top[top.length - 1];
+    if (last.score === "FN") return true;
+  }
+  if (log.some((e) => e.phase === "BREAKOUT" && e.pattern === testName)) {
+    return true;
+  }
+  return false;
+}
+
+/** Every L/R (or single) variant for this chain label was satisfied in the assessment log. */
+export function isSfmaBreakoutChainSatisfiedInLog(
+  chainBase: string,
+  log: ResultEntry[]
+): boolean {
+  const variants = TT_ORDER.filter(
+    (t) => stripTopTierSideSuffix(t) === chainBase || t === chainBase
+  );
+  if (variants.length === 0) return false;
+  return variants.every((v) => isSfmaTopTierSatisfiedInLog(v, log));
+}
+
+function filterSfmaRecommendationByLog(
+  rec: SFMARecommendation,
+  log: ResultEntry[],
+  handedness: Handedness
+): SFMARecommendation {
+  const { lead, trail } = resolveLeadTrail(handedness);
+  const filterTests = (tests: string[]) =>
+    sortBreakoutQueue(tests.filter((t) => !isSfmaTopTierSatisfiedInLog(t, log)));
+  const filterChains = (chains: string[]) =>
+    sortBreakoutChainNames(
+      chains.filter((c) => !isSfmaBreakoutChainSatisfiedInLog(c, log))
+    );
+  const dysfunctions = rec.dysfunctions.filter((d) => {
+    const resolved = d.sfmaTests.map((test) =>
+      resolveTopTierTestName(test, d.laterality, lead, trail)
+    );
+    return resolved.some((t) => !isSfmaTopTierSatisfiedInLog(t, log));
+  });
+  return {
+    topTierTests: filterTests(rec.topTierTests),
+    topTierTestsMd: filterTests(rec.topTierTestsMd),
+    topTierTestsSmcd: filterTests(rec.topTierTestsSmcd),
+    breakoutChains: filterChains(rec.breakoutChains),
+    dysfunctions,
+  };
+}
+
 export function recommendSFMATests(
   selectedFaultIds: string[],
-  handedness: Handedness
+  handedness: Handedness,
+  assessmentResults?: ResultEntry[] | null
 ): SFMARecommendation {
   const { lead, trail } = resolveLeadTrail(handedness);
   const topTierSet = new Set<string>();
@@ -68,7 +130,7 @@ export function recommendSFMATests(
     for (const dysfunction of allDysfunctions) {
       dysfunctions.push(dysfunction);
       for (const test of dysfunction.sfmaTests) {
-        const resolved = resolvePatternTestName(
+        const resolved = resolveTopTierTestName(
           test,
           dysfunction.laterality,
           lead,
@@ -85,11 +147,15 @@ export function recommendSFMATests(
     }
   }
 
-  return {
-    topTierTests: sortTestsByTopTierOrder(topTierSet),
-    topTierTestsMd: sortTestsByTopTierOrder(mdTierSet),
-    topTierTestsSmcd: sortTestsByTopTierOrder(smcdTierSet),
-    breakoutChains: Array.from(breakoutSet).sort(),
+  let rec: SFMARecommendation = {
+    topTierTests: sortBreakoutQueue(sortTestsByTopTierOrder(topTierSet)),
+    topTierTestsMd: sortBreakoutQueue(sortTestsByTopTierOrder(mdTierSet)),
+    topTierTestsSmcd: sortBreakoutQueue(sortTestsByTopTierOrder(smcdTierSet)),
+    breakoutChains: sortBreakoutChainNames(Array.from(breakoutSet)),
     dysfunctions,
   };
+  if (assessmentResults && assessmentResults.length > 0) {
+    rec = filterSfmaRecommendationByLog(rec, assessmentResults, handedness);
+  }
+  return rec;
 }

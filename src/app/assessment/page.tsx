@@ -6,17 +6,13 @@ import type { Score, AssessmentState, ResultEntry, Handedness } from "@/lib/type
 import { TT_ORDER } from "@/engine/top-tier";
 import { SFMA_LOGIC } from "@/engine/sfma-tree";
 import { processBreakoutStep } from "@/engine/breakout-processor";
+import { resolveBreakoutCursor } from "@/engine/breakout-resolve";
+import { breakoutChainKey, sortBreakoutQueue } from "@/engine/assessment-helpers";
 import { useAssessmentStore } from "@/db/assessment-store";
 import { useAuditStore } from "@/db/audit-store";
-import Timeline from "@/components/Timeline";
+import AssessmentProgress from "@/components/AssessmentProgress";
 import TestCard from "@/components/TestCard";
 import DiagnosisCard from "@/components/DiagnosisCard";
-
-function resolveChainKey(pattern: string): string {
-  if (pattern.includes("Cervical Rotation")) return "Cervical Rotation";
-  if (pattern.includes("SLS")) return "SLS";
-  return pattern;
-}
 
 function initialState(client: string, hand: Handedness): AssessmentState {
   return {
@@ -87,63 +83,62 @@ function AssessmentContent() {
     [addAudit, router, saveAssessment]
   );
 
-  const startBreakouts = useCallback(
+  const transitionToNextBreakoutOrFinish = useCallback(
     (st: AssessmentState) => {
-      if (st.boQueue.length === 0) {
+      let queue = [...st.boQueue];
+      const log = st.resultsLog;
+
+      if (queue.length === 0) {
         finishAndNavigate(st);
         return;
       }
-      const nextPattern = st.boQueue[0];
-      let key = nextPattern;
-      if (key.includes("Cervical Rotation")) key = "Cervical Rotation";
-      if (key.includes("SLS")) key = "SLS";
 
-      const chain = SFMA_LOGIC[key];
-      if (!chain) {
-        const remaining = st.boQueue.slice(1);
-        setState((s) => ({ ...s, boQueue: remaining }));
-        return;
+      while (queue.length > 0) {
+        const nextPattern = queue[0];
+        const key = breakoutChainKey(nextPattern);
+        const chain = SFMA_LOGIC[key];
+        if (!chain) {
+          queue = queue.slice(1);
+          continue;
+        }
+
+        const resolved = resolveBreakoutCursor(
+          SFMA_LOGIC,
+          key,
+          nextPattern,
+          log
+        );
+        if (!resolved.chainComplete) {
+          setState((s) => ({
+            ...s,
+            mode: "BO",
+            boQueue: queue.slice(1),
+            activePattern: resolved.activePattern,
+            currentTest: resolved.currentTest,
+          }));
+          setDiagnosis(null);
+          return;
+        }
+        queue = queue.slice(1);
       }
 
-      setState((s) => ({
-        ...s,
-        mode: "BO",
-        boQueue: st.boQueue.slice(1),
-        activePattern: nextPattern,
-        currentTest: chain.start,
-      }));
-      setDiagnosis(null);
+      finishAndNavigate({ ...st, boQueue: [] });
     },
     [finishAndNavigate]
   );
 
+  const startBreakouts = useCallback(
+    (st: AssessmentState) => {
+      transitionToNextBreakoutOrFinish(st);
+    },
+    [transitionToNextBreakoutOrFinish]
+  );
+
   const nextPattern = useCallback(
     (st: AssessmentState) => {
-      if (st.boQueue.length === 0) {
-        finishAndNavigate(st);
-        return;
-      }
-
-      const nextPat = st.boQueue[0];
-      let key = nextPat;
-      if (key.includes("Cervical Rotation")) key = "Cervical Rotation";
-      if (key.includes("SLS")) key = "SLS";
-
-      const chain = SFMA_LOGIC[key];
-      if (!chain) {
-        setState((s) => ({ ...s, boQueue: s.boQueue.slice(1) }));
-        return;
-      }
-
-      setState((s) => ({
-        ...s,
-        boQueue: s.boQueue.slice(1),
-        activePattern: nextPat,
-        currentTest: chain.start,
-      }));
-      setDiagnosis(null);
+      transitionToNextBreakoutOrFinish(st);
     },
-    [finishAndNavigate]
+    [transitionToNextBreakoutOrFinish]
   );
 
   const handleScore = useCallback(
@@ -159,12 +154,15 @@ function AssessmentContent() {
           score,
         };
         const newLog = [...state.resultsLog, entry];
-        const newKey = resolveChainKey(state.currentTest);
-        const alreadyQueued = state.boQueue.some((p) => resolveChainKey(p) === newKey);
-        const newQueue =
+        const newKey = breakoutChainKey(state.currentTest);
+        const alreadyQueued = state.boQueue.some(
+          (p) => breakoutChainKey(p) === newKey
+        );
+        const rawQueue =
           score !== "FN" && !alreadyQueued
             ? [...state.boQueue, state.currentTest]
             : state.boQueue;
+        const newQueue = sortBreakoutQueue(rawQueue);
         const nextIdx = state.ttIndex + 1;
 
         if (nextIdx < TT_ORDER.length) {
@@ -186,9 +184,7 @@ function AssessmentContent() {
           startBreakouts(newState);
         }
       } else {
-        let key = state.activePattern;
-        if (key.includes("Cervical Rotation")) key = "Cervical Rotation";
-        if (key.includes("SLS")) key = "SLS";
+        const key = breakoutChainKey(state.activePattern);
 
         const chain = SFMA_LOGIC[key];
         if (!chain) return;
@@ -224,10 +220,9 @@ function AssessmentContent() {
             setTransitioning(false);
           }, 1200);
         } else if (result.subPatternSwitch) {
-          const alreadyRan = newLog.some(
-            (r) => r.pattern === result.subPatternSwitch
-          );
-          if (alreadyRan) {
+          const flow = result.subPatternSwitch;
+          const flowTouched = newLog.some((r) => r.pattern === flow);
+          if (flowTouched) {
             setTransitioning(true);
             const newState: AssessmentState = {
               ...state,
@@ -239,42 +234,72 @@ function AssessmentContent() {
               setTransitioning(false);
             }, 300);
           } else {
-            const subChain = SFMA_LOGIC[result.subPatternSwitch];
+            const resolved = resolveBreakoutCursor(
+              SFMA_LOGIC,
+              flow,
+              flow,
+              newLog
+            );
             setTransitioning(true);
+            if (resolved.chainComplete) {
+              const newState: AssessmentState = {
+                ...state,
+                resultsLog: newLog,
+              };
+              setState(newState);
+              setTimeout(() => {
+                nextPattern(newState);
+                setTransitioning(false);
+              }, 300);
+            } else {
+              setState((s) => ({
+                ...s,
+                resultsLog: newLog,
+                activePattern: resolved.activePattern,
+                currentTest: resolved.currentTest,
+              }));
+              setTimeout(() => setTransitioning(false), 500);
+            }
+          }
+        } else {
+          const forward = resolveBreakoutCursor(
+            SFMA_LOGIC,
+            key,
+            state.activePattern,
+            newLog,
+            result.nextTest
+          );
+          setTransitioning(true);
+          if (forward.chainComplete) {
+            const doneState: AssessmentState = {
+              ...state,
+              resultsLog: newLog,
+            };
+            setState(doneState);
+            setTimeout(() => {
+              nextPattern(doneState);
+              setTransitioning(false);
+            }, 1200);
+          } else {
             setState((s) => ({
               ...s,
               resultsLog: newLog,
-              activePattern: result.subPatternSwitch!,
-              currentTest: subChain ? subChain.start : result.nextTest,
+              activePattern: forward.activePattern,
+              currentTest: forward.currentTest,
             }));
             setTimeout(() => setTransitioning(false), 500);
           }
-        } else {
-          setTransitioning(true);
-          setState((s) => ({
-            ...s,
-            resultsLog: newLog,
-            currentTest: result.nextTest,
-          }));
-          setTimeout(() => setTransitioning(false), 500);
         }
       }
     },
-    [state, transitioning, pushHistory, startBreakouts, nextPattern]
+    [
+      state,
+      transitioning,
+      pushHistory,
+      startBreakouts,
+      nextPattern,
+    ]
   );
-
-  const timelineEntries =
-    state.mode === "TT"
-      ? state.resultsLog.filter((r) => r.phase === "TOP_TIER")
-      : state.resultsLog.filter(
-          (r) =>
-            r.phase === "BREAKOUT" && r.pattern === state.activePattern
-        );
-
-  const timelineLabel =
-    state.mode === "TT"
-      ? "Global Scan Sequence"
-      : `${state.activePattern} Sequence`;
 
   const progressText =
     state.mode === "TT"
@@ -287,31 +312,36 @@ function AssessmentContent() {
       : undefined;
 
   return (
-    <div className="flex min-h-screen items-start justify-center px-4 sm:px-5 pt-6 sm:pt-10 pb-10">
-      <div className="w-full max-w-[850px] rounded-xl bg-spark-card p-4 sm:p-6 shadow-lg text-left">
-        <div
-          className={`rounded-md px-4 py-3 sm:py-4 text-white font-bold text-base sm:text-lg tracking-wide mb-1 text-center ${
-            state.mode === "TT"
-              ? "bg-spark-primary"
-              : "bg-spark-breakout"
-          }`}
-        >
-          {state.mode === "TT" ? "TOP TIER SCREENING" : "BREAKOUT AUDIT"}
-        </div>
-
-        <div className="flex items-center justify-between px-1 py-2 mb-3">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">
-            {progressText}
-          </span>
-          <span className="text-xs text-slate-400">
-            Patient: <b className="text-slate-600">{state.client}</b>
-          </span>
+    <div className="min-h-screen bg-gradient-to-br from-slate-200 via-slate-100 to-slate-300 px-3 sm:px-5 lg:px-8 py-4 sm:py-6">
+      <div className="mx-auto w-full max-w-[1600px] rounded-2xl bg-spark-card/95 backdrop-blur border border-white/60 shadow-xl p-4 sm:p-6 lg:p-7 text-left">
+        <div className="flex flex-col sm:flex-row sm:items-stretch gap-3 mb-4">
+          <div
+            className={`flex-grow rounded-xl px-5 py-3.5 text-white ${
+              state.mode === "TT" ? "bg-spark-primary" : "bg-spark-breakout"
+            }`}
+          >
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/70 mb-0.5">
+              Spark SFMA
+            </div>
+            <div className="font-semibold text-lg sm:text-xl tracking-tight">
+              {state.mode === "TT" ? "Top Tier Screening" : "Breakout Audit"}
+            </div>
+          </div>
+          <div className="sm:min-w-[220px] rounded-xl bg-white border border-slate-200 px-4 py-3 flex flex-col justify-center">
+            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+              Patient
+            </div>
+            <div className="font-semibold text-slate-800 truncate">
+              {state.client}
+            </div>
+            <div className="text-xs text-slate-500 mt-0.5">{progressText}</div>
+          </div>
         </div>
 
         {progressPct !== undefined && (
-          <div className="w-full h-1.5 bg-slate-200 rounded-full mb-4 overflow-hidden">
+          <div className="w-full h-1.5 bg-slate-200/80 rounded-full mb-4 overflow-hidden">
             <div
-              className="h-full bg-spark-primary rounded-full transition-all duration-300"
+              className="h-full bg-slate-800 rounded-full transition-all duration-300"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -319,11 +349,13 @@ function AssessmentContent() {
 
         <DiagnosisCard diagnosis={diagnosis} />
 
-        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4 sm:gap-5 items-stretch mb-4">
-          <Timeline
-            entries={timelineEntries}
-            label={timelineLabel}
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(360px,42%)_minmax(0,1fr)] gap-4 lg:gap-5 items-stretch mb-4">
+          <AssessmentProgress
             mode={state.mode}
+            currentTest={state.currentTest}
+            activePattern={state.activePattern}
+            resultsLog={state.resultsLog}
+            boQueue={state.boQueue}
           />
           <TestCard
             testName={state.currentTest}
@@ -336,7 +368,7 @@ function AssessmentContent() {
         <button
           onClick={goBack}
           disabled={history.length === 0}
-          className="w-full rounded-md bg-slate-400 py-3 text-white font-bold text-sm uppercase tracking-wide hover:bg-slate-500 transition-colors disabled:opacity-40"
+          className="w-full rounded-xl bg-slate-500/90 py-3 text-white font-semibold text-sm tracking-wide hover:bg-slate-600 transition-colors disabled:opacity-35"
         >
           &larr; Back (Undo Last)
         </button>

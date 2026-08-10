@@ -29,8 +29,21 @@ export function processBreakoutStep(
   const branch = node[score] ?? node.any;
   if (!branch) return { nextTest: "EXIT" };
   const diag = branch.diag;
-  const nextTarget = resolveNext(branch.next, resultsLog);
+  // Include the score being applied so CHECK_ of the current test resolves correctly.
+  const logWithCurrent: ResultEntry[] = [
+    ...resultsLog,
+    { phase: "BREAKOUT", pattern: "", test: currentTest, score, diag },
+  ];
+  const nextTarget = resolveNext(branch.next, logWithCurrent);
   if (nextTarget === "EXIT") return { nextTest: "EXIT", diag };
   if (nextTarget.includes("Flow")) return { nextTest: nextTarget, diag, subPatternSwitch: nextTarget };
   return { nextTest: nextTarget, diag };
+}
+
+/** Resolve CHECK_ / EXIT targets against a results log (for tree preview / tooling). */
+export function resolveBreakoutNext(
+  target: string | undefined,
+  resultsLog: ResultEntry[],
+): string {
+  return resolveNext(target, resultsLog);
 }

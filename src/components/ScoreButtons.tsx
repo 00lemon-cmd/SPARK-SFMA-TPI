@@ -2,11 +2,36 @@
 
 import type { Score } from "@/lib/types";
 
-const BUTTONS: { score: Score; label: string; className: string }[] = [
-  { score: "FN", label: "FN", className: "bg-spark-fn hover:brightness-110" },
-  { score: "DN", label: "DN", className: "bg-spark-dn hover:brightness-110" },
-  { score: "DP", label: "DP", className: "bg-spark-dp hover:brightness-110" },
-  { score: "FP", label: "FP", className: "bg-spark-fp hover:brightness-110" },
+const BUTTONS: {
+  score: Score;
+  label: string;
+  hint: string;
+  className: string;
+}[] = [
+  {
+    score: "FN",
+    label: "FN",
+    hint: "Functional · No pain",
+    className: "bg-spark-fn hover:brightness-105",
+  },
+  {
+    score: "DN",
+    label: "DN",
+    hint: "Dysfunctional · No pain",
+    className: "bg-spark-dn hover:brightness-105",
+  },
+  {
+    score: "DP",
+    label: "DP",
+    hint: "Dysfunctional · Pain",
+    className: "bg-spark-dp hover:brightness-105",
+  },
+  {
+    score: "FP",
+    label: "FP",
+    hint: "Functional · Pain",
+    className: "bg-spark-fp hover:brightness-105",
+  },
 ];
 
 interface Props {
@@ -22,9 +47,12 @@ export default function ScoreButtons({ onScore, disabled }: Props) {
           key={b.score}
           disabled={disabled}
           onClick={() => onScore(b.score)}
-          className={`${b.className} rounded-md py-4 text-white font-bold text-base uppercase tracking-wide transition-all active:scale-[0.98] disabled:opacity-50`}
+          className={`${b.className} rounded-xl py-3.5 px-3 text-white transition-all active:scale-[0.98] disabled:opacity-45 shadow-sm`}
         >
-          {b.label}
+          <span className="block font-black text-lg tracking-wide">{b.label}</span>
+          <span className="block text-[10px] font-medium text-white/85 mt-0.5 leading-tight">
+            {b.hint}
+          </span>
         </button>
       ))}
     </div>

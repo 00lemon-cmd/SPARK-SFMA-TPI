@@ -1,5 +1,8 @@
-import type { Exercise, ResultEntry, DysfunctionType } from "@/lib/types";
+import type { Exercise, ResultEntry, DysfunctionType, Handedness } from "@/lib/types";
 import { EXERCISE_LIBRARY } from "./library";
+import { MEDICAL_L2_MAP } from "@/tpi/medical-l2-map";
+import { resolveTopTierTestName } from "@/tpi/tpi-to-sfma";
+import { resolveLeadTrail } from "@/lib/types";
 
 export interface PrescribedExercise {
   exercise: Exercise;
@@ -177,4 +180,40 @@ export function buildTodaysProgram(terminalDiagnoses: ResultEntry[]): Prescribed
   }
 
   return selected;
+}
+
+/**
+ * Bridge: selected swing faults (Medical L2-style hypotheses) → exercise program
+ * without a completed SFMA session. Uses the same prescription rules as post-assessment programs.
+ */
+export function buildQuickProgramFromSwingFaults(
+  faultIds: string[],
+  handedness: Handedness
+): PrescribedExercise[] {
+  const { lead, trail } = resolveLeadTrail(handedness);
+  const synthetic: ResultEntry[] = [];
+  const seen = new Set<string>();
+  for (const faultId of faultIds) {
+    const mapping = MEDICAL_L2_MAP.find((m) => m.faultId === faultId);
+    if (!mapping) continue;
+    const allDys = [...mapping.mobilityDysfunctions, ...mapping.smcdDysfunctions];
+    for (const d of allDys) {
+      for (const test of d.sfmaTests) {
+        const tt = resolveTopTierTestName(test, d.laterality, lead, trail);
+        const tag = d.type === "MD" ? "MD" : "SMCD";
+        const diag = `${d.description} (${tag})`;
+        const key = `${tt}|${diag}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        synthetic.push({
+          phase: "BREAKOUT",
+          pattern: tt,
+          test: tt,
+          score: "DN",
+          diag,
+        });
+      }
+    }
+  }
+  return buildTodaysProgram(synthetic);
 }
