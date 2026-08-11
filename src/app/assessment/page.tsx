@@ -11,6 +11,7 @@ import { breakoutChainKey, sortBreakoutQueue } from "@/engine/assessment-helpers
 import { useAssessmentStore } from "@/db/assessment-store";
 import { useAuditStore } from "@/db/audit-store";
 import AssessmentProgress from "@/components/AssessmentProgress";
+import BreakoutChainMap from "@/components/BreakoutChainMap";
 import TestCard from "@/components/TestCard";
 import DiagnosisCard from "@/components/DiagnosisCard";
 
@@ -349,11 +350,10 @@ function AssessmentContent() {
 
         <DiagnosisCard diagnosis={diagnosis} />
 
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(360px,42%)_minmax(0,1fr)] gap-4 lg:gap-5 items-stretch mb-4">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(280px,32%)_minmax(0,1fr)] gap-4 lg:gap-5 items-stretch mb-4">
           <AssessmentProgress
             mode={state.mode}
             currentTest={state.currentTest}
-            activePattern={state.activePattern}
             resultsLog={state.resultsLog}
             boQueue={state.boQueue}
           />
@@ -368,10 +368,18 @@ function AssessmentContent() {
         <button
           onClick={goBack}
           disabled={history.length === 0}
-          className="w-full rounded-xl bg-slate-500/90 py-3 text-white font-semibold text-sm tracking-wide hover:bg-slate-600 transition-colors disabled:opacity-35"
+          className="w-full rounded-xl bg-slate-500/90 py-3 text-white font-semibold text-sm tracking-wide hover:bg-slate-600 transition-colors disabled:opacity-35 mb-4"
         >
           &larr; Back (Undo Last)
         </button>
+
+        {state.mode === "BO" && state.activePattern && (
+          <BreakoutChainMap
+            activePattern={state.activePattern}
+            currentTest={state.currentTest}
+            resultsLog={state.resultsLog}
+          />
+        )}
       </div>
     </div>
   );

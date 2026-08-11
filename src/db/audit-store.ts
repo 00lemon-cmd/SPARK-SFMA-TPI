@@ -13,6 +13,7 @@ export type AuditAction =
   | "pdf_export_program"
   | "pdf_export_tpi"
   | "pdf_export_all"
+  | "send_to_training_app"
   | "audit_log_exported"
   | "staff_logout";
 

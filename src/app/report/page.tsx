@@ -14,6 +14,10 @@ import {
   exportProgramPDF,
   exportTPICrossRefPDF,
 } from "@/report/pdf-export";
+import {
+  buildCompletedAssessmentPayload,
+  sendAssessmentToTrainingApp,
+} from "@/lib/training-app-handoff";
 
 type Tab = "audit" | "program" | "tpi";
 
@@ -41,8 +45,37 @@ function ReportContent() {
   }, [assessment, params]);
 
   const [tab, setTab] = useState<Tab>("audit");
+  const [handoffNote, setHandoffNote] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   const agg = useMemo(() => aggregateDiagnoses(results), [results]);
   const addAudit = useAuditStore((s) => s.add);
+
+  async function handleSendToTrainingApp() {
+    setSending(true);
+    setHandoffNote(null);
+    try {
+      const payload = buildCompletedAssessmentPayload({
+        id: assessment?.id,
+        client,
+        handedness: hand,
+        date: assessment?.date,
+        results,
+      });
+      const mode = await sendAssessmentToTrainingApp(payload);
+      addAudit({ action: "send_to_training_app", client });
+      setHandoffNote(
+        mode === "opened"
+          ? "Opened the training app with this assessment loaded."
+          : "Assessment JSON copied — paste it under Import on the training app SFMA page (URL was too large for a direct handoff).",
+      );
+    } catch (err) {
+      setHandoffNote(
+        err instanceof Error ? err.message : "Could not open the training app.",
+      );
+    } finally {
+      setSending(false);
+    }
+  }
 
   const tabs: { id: Tab; label: string; color: string }[] = [
     { id: "audit", label: "Clinical Audit", color: "bg-spark-audit" },
@@ -121,6 +154,13 @@ function ReportContent() {
 
         <div className="flex gap-3 mt-6 justify-center flex-wrap">
           <button
+            onClick={() => void handleSendToTrainingApp()}
+            disabled={sending}
+            className="px-5 py-3 rounded-md bg-spark-breakout text-white font-bold text-sm hover:brightness-110 transition-all disabled:opacity-50"
+          >
+            {sending ? "Sending…" : "Send to Training App"}
+          </button>
+          <button
             onClick={() => {
               addAudit({ action: "pdf_export_audit", client });
               exportClinicalAuditPDF(client, agg, results);
@@ -165,6 +205,12 @@ function ReportContent() {
             New Patient
           </button>
         </div>
+
+        {handoffNote && (
+          <p className="mt-4 text-center text-sm text-slate-600 max-w-xl mx-auto">
+            {handoffNote}
+          </p>
+        )}
       </div>
     </div>
   );
